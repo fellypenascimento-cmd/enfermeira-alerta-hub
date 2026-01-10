@@ -6,35 +6,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2, Building2, Shield } from 'lucide-react';
+import { Loader2, Building2, Shield, Filter } from 'lucide-react';
 import { z } from 'zod';
-
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
 });
-
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const {
+    signIn
+  } = useAuth();
   const navigate = useNavigate();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate input
-    const result = loginSchema.safeParse({ email, password });
+    const result = loginSchema.safeParse({
+      email,
+      password
+    });
     if (!result.success) {
       toast.error(result.error.errors[0].message);
       return;
     }
-
     setLoading(true);
-    
-    const { error } = await signIn(email, password);
-    
+    const {
+      error
+    } = await signIn(email, password);
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
         toast.error('Email ou senha incorretos');
@@ -45,30 +46,23 @@ export default function Auth() {
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
     }
-    
     setLoading(false);
   };
-
-  return (
-    <div className="min-h-screen flex">
+  return <div className="min-h-screen flex">
       {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 sidebar-gradient items-center justify-center p-12">
         <div className="max-w-md text-center">
           <div className="mb-8 flex justify-center">
             <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-sm">
-              <Building2 className="h-16 w-16 text-white" />
+              <Filter className="h-16 w-16 text-white" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">
-            Sistema de Chamados UBS
-          </h1>
-          <p className="text-lg text-white/80 leading-relaxed">
-            Gerencie chamados e solicitações das Unidades Básicas de Saúde de forma eficiente e organizada.
-          </p>
+          <h1 className="text-4xl font-bold text-white mb-4">Sistema de Chamados </h1>
+          <p className="text-lg text-white/80 leading-relaxed">Resolvendo seus Problemas</p>
           <div className="mt-12 flex items-center justify-center gap-4">
             <div className="flex items-center gap-2 text-white/70">
               <Shield className="h-5 w-5" />
-              <span className="text-sm">Acesso seguro</span>
+              <span className="text-sm">Acesso seguro</span>
             </div>
           </div>
         </div>
@@ -94,45 +88,19 @@ export default function Auth() {
                 <Label htmlFor="email" className="text-sm font-medium">
                   Email
                 </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu.email@exemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-11"
-                  autoComplete="email"
-                />
+                <Input id="email" type="email" placeholder="seu.email@exemplo.com" value={email} onChange={e => setEmail(e.target.value)} required className="h-11" autoComplete="email" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium">
                   Senha
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-11"
-                  autoComplete="current-password"
-                />
+                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="h-11" autoComplete="current-password" />
               </div>
-              <Button
-                type="submit"
-                className="w-full h-11 btn-gradient font-medium"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
+              <Button type="submit" className="w-full h-11 btn-gradient font-medium" disabled={loading}>
+                {loading ? <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Entrando...
-                  </>
-                ) : (
-                  'Entrar'
-                )}
+                  </> : 'Entrar'}
               </Button>
             </form>
             <div className="mt-6 text-center text-sm text-muted-foreground">
@@ -141,6 +109,5 @@ export default function Auth() {
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 }
