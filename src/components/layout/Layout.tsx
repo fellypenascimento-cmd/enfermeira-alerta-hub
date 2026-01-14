@@ -142,7 +142,7 @@ export function Layout({ children }: LayoutProps) {
           style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}
         >
           <p className="text-sm text-white/70 truncate mb-1">
-            {profile?.email || 'usuario@email.com'}
+            {profile?.nome || profile?.email || 'Usuário'}
           </p>
           <span 
             className="inline-block px-2 py-0.5 text-xs font-medium rounded text-white/90"
