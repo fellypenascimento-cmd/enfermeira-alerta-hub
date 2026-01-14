@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AppLayout from '@/components/layout/AppLayout';
-import PageHeader from '@/components/common/PageHeader';
+import { Layout } from '@/components/layout/Layout';
+import { FadeIn } from '@/components/animations';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -45,11 +45,14 @@ export default function NovoChamado() {
   };
 
   return (
-    <AppLayout>
-      <PageHeader
-        title="Novo Chamado"
-        subtitle="Abra um chamado para reportar um problema"
-      />
+    <Layout>
+      <div className="p-6 space-y-6">
+        <FadeIn>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Novo Chamado</h1>
+            <p className="text-muted-foreground">Abra um chamado para reportar um problema</p>
+          </div>
+        </FadeIn>
 
       <Card className="max-w-2xl">
         <CardContent className="pt-6">
@@ -115,6 +118,7 @@ export default function NovoChamado() {
           </form>
         </CardContent>
       </Card>
-    </AppLayout>
+      </div>
+    </Layout>
   );
 }

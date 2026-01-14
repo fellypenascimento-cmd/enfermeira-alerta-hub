@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useChamadosStats, useChamados } from '@/hooks/useChamados';
-import AppLayout from '@/components/layout/AppLayout';
-import PageHeader from '@/components/common/PageHeader';
+import { Layout } from '@/components/layout/Layout';
+import { FadeIn } from '@/components/animations';
 import StatCard from '@/components/common/StatCard';
 import StatusBadge from '@/components/common/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -17,19 +17,26 @@ export default function Dashboard() {
   const { data: recentChamados, isLoading: chamadosLoading } = useChamados({ limit: 5, allChamados: isAdmin });
 
   return (
-    <AppLayout>
-      <PageHeader
-        title={`Olá, ${profile?.nome?.split(' ')[0] || 'Usuário'}!`}
-        subtitle={isAdmin ? 'Visão geral de todos os chamados' : 'Acompanhe seus chamados'}
-        actions={
-          <Button asChild className="btn-gradient">
-            <Link to="/chamados/novo">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Chamado
-            </Link>
-          </Button>
-        }
-      />
+    <Layout>
+      <div className="p-6 space-y-6">
+        <FadeIn>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                Olá, {profile?.nome?.split(' ')[0] || 'Usuário'}!
+              </h1>
+              <p className="text-muted-foreground">
+                {isAdmin ? 'Visão geral de todos os chamados' : 'Acompanhe seus chamados'}
+              </p>
+            </div>
+            <Button asChild className="btn-gradient">
+              <Link to="/chamados/novo">
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Chamado
+              </Link>
+            </Button>
+          </div>
+        </FadeIn>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -104,6 +111,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
-    </AppLayout>
+      </div>
+    </Layout>
   );
 }
