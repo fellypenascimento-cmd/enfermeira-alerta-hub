@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import AppLayout from '@/components/layout/AppLayout';
-import PageHeader from '@/components/common/PageHeader';
+import { Layout } from '@/components/layout/Layout';
+import { FadeIn } from '@/components/animations';
 import { useUsers } from '@/hooks/useUsers';
 import { useUnidades } from '@/hooks/useUnidades';
 import { useAuth } from '@/contexts/AuthContext';
@@ -165,11 +165,16 @@ export default function Usuarios() {
   };
 
   return (
-    <AppLayout>
-      <PageHeader
-        title="Gestão de Usuários"
-        subtitle="Gerencie os usuários do sistema"
-      />
+    <Layout>
+      <div className="p-6 space-y-6">
+        <FadeIn>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Gestão de Usuários</h1>
+              <p className="text-muted-foreground">Gerencie os usuários do sistema</p>
+            </div>
+          </div>
+        </FadeIn>
 
       <div className="flex justify-end mb-6">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -341,6 +346,7 @@ export default function Usuarios() {
           </TableBody>
         </Table>
       </div>
-    </AppLayout>
+      </div>
+    </Layout>
   );
 }
