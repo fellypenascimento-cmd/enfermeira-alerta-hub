@@ -30,17 +30,23 @@ interface NavItem {
   icon: React.ElementType;
 }
 
+// Navegação principal - comum a todos os perfis
 const navItemsEnfermeira: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Meus Chamados', href: '/chamados', icon: ClipboardList },
   { label: 'Novo Chamado', href: '/chamados/novo', icon: Plus },
 ];
 
-const navItemsAdmin: NavItem[] = [
+// Navegação principal - para admin
+const navItemsPrincipalAdmin: NavItem[] = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'Meus Chamados', href: '/chamados', icon: ClipboardList },
   { label: 'Novo Chamado', href: '/chamados/novo', icon: Plus },
   { label: 'Todos os Chamados', href: '/admin/chamados', icon: FileText },
+];
+
+// Navegação de administração - apenas para admin
+const navItemsAdministracao: NavItem[] = [
   { label: 'Usuários', href: '/admin/usuarios', icon: Users },
   { label: 'Unidades', href: '/admin/unidades', icon: Building2 },
   { label: 'Problemas', href: '/admin/problemas', icon: AlertCircle },
@@ -51,7 +57,8 @@ export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
-  const navItems = isAdmin ? navItemsAdmin : navItemsEnfermeira;
+  // Itens de navegação principal baseado no perfil
+  const navItemsPrincipal = isAdmin ? navItemsPrincipalAdmin : navItemsEnfermeira;
 
   const handleSignOut = async () => {
     await signOut();
@@ -149,98 +156,100 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.slice(0, isAdmin ? 4 : 3).map((item) => (
-            <NavLink
-              key={item.href}
-              to={item.href}
-              onClick={() => setSidebarOpen(false)}
-              className="block"
-            >
-              {({ isActive }) => (
-                <div
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 group",
-                    isActive 
-                      ? "text-white" 
-                      : "text-white/60 hover:text-white/90"
-                  )}
-                  style={{ 
-                    backgroundColor: isActive 
-                      ? 'rgba(255, 255, 255, 0.1)' 
-                      : 'transparent',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="flex-1">{item.label}</span>
-                  {isActive && (
-                    <ChevronRight className="w-4 h-4 text-white/70" />
-                  )}
-                </div>
-              )}
-            </NavLink>
-          ))}
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          {/* Seção Principal */}
+          <div className="space-y-1">
+            {navItemsPrincipal.map((item) => (
+              <NavLink
+                key={item.href}
+                to={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className="block"
+              >
+                {({ isActive }) => (
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 group",
+                      isActive 
+                        ? "text-white" 
+                        : "text-white/60 hover:text-white/90"
+                    )}
+                    style={{ 
+                      backgroundColor: isActive 
+                        ? 'rgba(255, 255, 255, 0.1)' 
+                        : 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="flex-1">{item.label}</span>
+                    {isActive && (
+                      <ChevronRight className="w-4 h-4 text-white/70" />
+                    )}
+                  </div>
+                )}
+              </NavLink>
+            ))}
+          </div>
 
-          {/* Admin section label */}
+          {/* Seção Administração - apenas para admin */}
           {isAdmin && (
-            <>
-              <div className="pt-6 pb-2">
-                <p className="px-3 text-xs font-medium text-white/40 uppercase tracking-wider">
-                  Administração
-                </p>
+            <div className="mt-6">
+              <p className="px-3 pb-2 text-xs font-medium text-white/40 uppercase tracking-wider">
+                Administração
+              </p>
+              <div className="space-y-1">
+                {navItemsAdministracao.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    to={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className="block"
+                  >
+                    {({ isActive }) => (
+                      <div
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 group",
+                          isActive 
+                            ? "text-white" 
+                            : "text-white/60 hover:text-white/90"
+                        )}
+                        style={{ 
+                          backgroundColor: isActive 
+                            ? 'rgba(255, 255, 255, 0.1)' 
+                            : 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <item.icon className="w-5 h-5 flex-shrink-0" />
+                        <span className="flex-1">{item.label}</span>
+                        {isActive && (
+                          <ChevronRight className="w-4 h-4 text-white/70" />
+                        )}
+                      </div>
+                    )}
+                  </NavLink>
+                ))}
               </div>
-              
-              {navItems.slice(4).map((item) => (
-                <NavLink
-                  key={item.href}
-                  to={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className="block"
-                >
-                  {({ isActive }) => (
-                    <div
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 group",
-                        isActive 
-                          ? "text-white" 
-                          : "text-white/60 hover:text-white/90"
-                      )}
-                      style={{ 
-                        backgroundColor: isActive 
-                          ? 'rgba(255, 255, 255, 0.1)' 
-                          : 'transparent',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }
-                      }}
-                    >
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="flex-1">{item.label}</span>
-                      {isActive && (
-                        <ChevronRight className="w-4 h-4 text-white/70" />
-                      )}
-                    </div>
-                  )}
-                </NavLink>
-              ))}
-            </>
+            </div>
           )}
         </nav>
 
