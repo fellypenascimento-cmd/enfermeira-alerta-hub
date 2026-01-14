@@ -118,6 +118,121 @@ export type Database = {
           },
         ]
       }
+      estoque_itens: {
+        Row: {
+          created_at: string | null
+          data_entrada: string
+          id: string
+          numero_patrimonio: string | null
+          observacao_entrada: string | null
+          produto_id: string
+          quantidade: number | null
+          responsavel_entrada_id: string
+          status: string | null
+          unidade_atual_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_entrada?: string
+          id?: string
+          numero_patrimonio?: string | null
+          observacao_entrada?: string | null
+          produto_id: string
+          quantidade?: number | null
+          responsavel_entrada_id: string
+          status?: string | null
+          unidade_atual_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_entrada?: string
+          id?: string
+          numero_patrimonio?: string | null
+          observacao_entrada?: string | null
+          produto_id?: string
+          quantidade?: number | null
+          responsavel_entrada_id?: string
+          status?: string | null
+          unidade_atual_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_itens_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_itens_unidade_atual_id_fkey"
+            columns: ["unidade_atual_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estoque_movimentacoes: {
+        Row: {
+          created_at: string | null
+          data_movimentacao: string
+          id: string
+          item_id: string
+          observacao: string | null
+          responsavel_id: string
+          tipo: string
+          unidade_destino_id: string | null
+          unidade_origem_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_movimentacao?: string
+          id?: string
+          item_id: string
+          observacao?: string | null
+          responsavel_id: string
+          tipo: string
+          unidade_destino_id?: string | null
+          unidade_origem_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_movimentacao?: string
+          id?: string
+          item_id?: string
+          observacao?: string | null
+          responsavel_id?: string
+          tipo?: string
+          unidade_destino_id?: string | null
+          unidade_origem_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_movimentacoes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_itens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_movimentacoes_unidade_destino_id_fkey"
+            columns: ["unidade_destino_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_movimentacoes_unidade_origem_id_fkey"
+            columns: ["unidade_origem_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       problemas: {
         Row: {
           ativo: boolean | null
@@ -141,6 +256,36 @@ export type Database = {
           descricao?: string | null
           id?: string
           titulo?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      produtos: {
+        Row: {
+          ativo: boolean | null
+          categoria: string | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
           updated_at?: string | null
         }
         Relationships: []

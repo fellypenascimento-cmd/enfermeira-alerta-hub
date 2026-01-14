@@ -65,10 +65,10 @@ export interface ChamadoHistorico {
 
 // Extended types with relations
 export interface ChamadoWithRelations extends Chamado {
-  unidade?: Unidade | null;
-  problema?: Problema | null;
+  unidade?: { id: string; nome: string } | null;
+  problema?: { id: string; titulo: string } | null;
   usuario?: Profile | null;
-  atendente?: Profile | null;
+  atendente?: { id: string; nome: string; email: string } | null;
 }
 
 export interface ProfileWithRole extends Profile {

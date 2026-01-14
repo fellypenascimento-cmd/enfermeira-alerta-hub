@@ -54,7 +54,8 @@ export function useChamadoById(id: string) {
         .select(`
           *,
           unidade:unidades(id, nome),
-          problema:problemas(id, titulo)
+          problema:problemas(id, titulo),
+          atendente:profiles!chamados_atendente_id_fkey(id, nome, email)
         `)
         .eq('id', id)
         .maybeSingle();
