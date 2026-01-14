@@ -9,7 +9,8 @@ interface AuthContextType {
   profile: Profile | null;
   role: AppRole | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
   isEnfermeira: boolean;
@@ -91,9 +92,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+  const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message === 'Invalid login credentials') {
+          return { error: 'E-mail ou senha incorretos' };
+        }
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch {
+      return { error: 'Erro ao fazer login. Tente novamente.' };
+    }
+  };
+
+  const signInWithGoogle = async (): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) {
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch {
+      return { error: 'Erro ao fazer login com Google. Tente novamente.' };
+    }
   };
 
   const signOut = async () => {
@@ -107,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role,
     loading,
     signIn,
+    signInWithGoogle,
     signOut,
     isAdmin: role === 'admin',
     isEnfermeira: role === 'enfermeira',

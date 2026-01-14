@@ -3,12 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { MockAuthProvider, useMockAuth } from "@/contexts/MockAuthContext";
-import { ChamadosProvider } from "@/contexts/ChamadosContext";
-import { DataProvider } from "@/contexts/DataContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 // Pages
-import Login from "./pages/Login";
+import Auth from "./pages/Auth";
 import EnfermeiraDashboard from "./pages/enfermeira/Dashboard";
 import NovoChamado from "./pages/enfermeira/NovoChamado";
 import MeusChamados from "./pages/enfermeira/MeusChamados";
@@ -18,7 +16,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading } = useMockAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -28,7 +26,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -36,9 +34,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isAdmin } = useMockAuth();
+  const { user, isAdmin, loading } = useAuth();
 
-  if (isAuthenticated) {
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (user) {
     return <Navigate to={isAdmin ? "/admin/dashboard" : "/dashboard"} replace />;
   }
 
@@ -50,7 +56,7 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Navigate to="/auth" replace />} />
-      <Route path="/auth" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       
       {/* Enfermeira routes */}
       <Route path="/dashboard" element={<ProtectedRoute><EnfermeiraDashboard /></ProtectedRoute>} />
@@ -58,7 +64,7 @@ function AppRoutes() {
       <Route path="/chamados/novo" element={<ProtectedRoute><NovoChamado /></ProtectedRoute>} />
       <Route path="/chamados/:id" element={<ProtectedRoute><ChamadoDetalhe /></ProtectedRoute>} />
       
-      {/* Admin routes - placeholder for now */}
+      {/* Admin routes */}
       <Route path="/admin/dashboard" element={<ProtectedRoute><EnfermeiraDashboard /></ProtectedRoute>} />
       <Route path="/admin/chamados" element={<ProtectedRoute><MeusChamados /></ProtectedRoute>} />
       <Route path="/admin/usuarios" element={<ProtectedRoute><div className="p-8">Gestão de Usuários - Em breve</div></ProtectedRoute>} />
@@ -77,13 +83,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <MockAuthProvider>
-          <DataProvider>
-            <ChamadosProvider>
-              <AppRoutes />
-            </ChamadosProvider>
-          </DataProvider>
-        </MockAuthProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -37,11 +37,7 @@ export default function Auth() {
       error
     } = await signIn(email, password);
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        toast.error('Email ou senha incorretos');
-      } else {
-        toast.error('Erro ao fazer login. Tente novamente.');
-      }
+      toast.error(error);
     } else {
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
