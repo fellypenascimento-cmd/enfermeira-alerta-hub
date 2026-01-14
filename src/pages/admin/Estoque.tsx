@@ -15,6 +15,7 @@ import {
   Loader2,
   Box,
   Building2,
+  FileText,
   Hash,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -47,7 +48,13 @@ export default function Estoque() {
                 Controle de produtos e equipamentos das unidades
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link to="/admin/estoque/relatorios">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Relatórios
+                </Link>
+              </Button>
               <Button asChild variant="outline">
                 <Link to="/admin/estoque/saida">
                   <ArrowUpFromLine className="w-4 h-4 mr-2" />

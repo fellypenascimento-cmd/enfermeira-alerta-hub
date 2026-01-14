@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
+import logoTocha from '@/assets/logo-tocha.png';
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -100,12 +101,11 @@ export function Layout({
         </Button>
         
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded flex items-center justify-center" style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.1)'
-        }}>
-            <ClipboardList className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-semibold text-white">Sistema UBS</span>
+          <img 
+            src={logoTocha} 
+            alt="Tocha" 
+            className="h-8 w-auto object-contain"
+          />
         </div>
         
         <div className="w-10" />
@@ -127,16 +127,17 @@ export function Layout({
       backgroundColor: menuBaseColor
     }}>
         {/* Logo */}
-        <div className="h-14 flex items-center gap-3 px-4" style={{
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-      }}>
-          <div className="w-8 h-8 rounded flex items-center justify-center" style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.1)'
-        }}>
-            <ClipboardList className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-semibold text-lg text-white">HELP ME</span>
-        </div>
+        <NavLink 
+          to={isAdmin ? '/admin/dashboard' : '/dashboard'}
+          className="h-16 flex items-center justify-center px-4 hover:opacity-90 transition-opacity"
+          style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}
+        >
+          <img 
+            src={logoTocha} 
+            alt="Tocha - Ilumine sua ideia" 
+            className="h-12 w-auto object-contain"
+          />
+        </NavLink>
 
         {/* User info */}
         <div className="px-4 py-4" style={{
