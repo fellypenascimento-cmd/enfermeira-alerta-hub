@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { Chamado, ChamadoStatus, ChamadoHistorico, ChamadoCompleto } from '@/types';
 import { mockChamados, mockHistorico, getUnidadeById, getProblemaById, getUserById, getChamadoHistorico } from '@/data/mockData';
-import { useAuth } from './MockAuthContext';
+import { useMockAuth } from './MockAuthContext';
 
 interface ChamadosContextType {
   chamados: Chamado[];
@@ -34,7 +34,7 @@ interface CreateChamadoData {
 const ChamadosContext = createContext<ChamadosContextType | undefined>(undefined);
 
 export function ChamadosProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user } = useMockAuth();
   const [chamados, setChamados] = useState<Chamado[]>(mockChamados);
   const [historico, setHistorico] = useState<ChamadoHistorico[]>(mockHistorico);
   const [loading] = useState(false);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/MockAuthContext';
+import { useMockAuth } from '@/contexts/MockAuthContext';
 import {
   Home,
   Plus,
@@ -44,7 +44,7 @@ const navItemsAdmin: NavItem[] = [
 ];
 
 export function Layout({ children }: LayoutProps) {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin } = useMockAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 

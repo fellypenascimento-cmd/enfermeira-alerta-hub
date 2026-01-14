@@ -12,11 +12,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const MockAuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function MockAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    // Check localStorage for persisted user
     const savedUser = localStorage.getItem('mockUser');
     return savedUser ? JSON.parse(savedUser) : null;
   });
@@ -25,10 +24,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     setLoading(true);
     
-    // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Find user by email (mock validation - any password works)
     const foundUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
     
     if (!foundUser) {
@@ -41,7 +38,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: 'Usuário inativo. Entre em contato com o administrador.' };
     }
     
-    // For demo: any password with 6+ chars works
     if (password.length < 6) {
       setLoading(false);
       return { error: 'Senha inválida. A senha deve ter pelo menos 6 caracteres.' };
@@ -73,16 +69,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <MockAuthContext.Provider value={value}>
       {children}
-    </AuthContext.Provider>
+    </MockAuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
+export function useMockAuth() {
+  const context = useContext(MockAuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useMockAuth must be used within a MockAuthProvider');
   }
   return context;
 }
