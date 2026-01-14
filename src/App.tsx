@@ -11,6 +11,11 @@ import EnfermeiraDashboard from "./pages/enfermeira/Dashboard";
 import NovoChamado from "./pages/enfermeira/NovoChamado";
 import MeusChamados from "./pages/enfermeira/MeusChamados";
 import ChamadoDetalhe from "./pages/enfermeira/ChamadoDetalhe";
+import AdminDashboard from "./pages/admin/Dashboard";
+import CentralChamados from "./pages/admin/CentralChamados";
+import Usuarios from "./pages/admin/Usuarios";
+import Unidades from "./pages/admin/Unidades";
+import Problemas from "./pages/admin/Problemas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,7 +59,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public routes */}
       <Route path="/" element={<Navigate to="/auth" replace />} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       
@@ -65,13 +69,13 @@ function AppRoutes() {
       <Route path="/chamados/:id" element={<ProtectedRoute><ChamadoDetalhe /></ProtectedRoute>} />
       
       {/* Admin routes */}
-      <Route path="/admin/dashboard" element={<ProtectedRoute><EnfermeiraDashboard /></ProtectedRoute>} />
-      <Route path="/admin/chamados" element={<ProtectedRoute><MeusChamados /></ProtectedRoute>} />
-      <Route path="/admin/usuarios" element={<ProtectedRoute><div className="p-8">Gestão de Usuários - Em breve</div></ProtectedRoute>} />
-      <Route path="/admin/unidades" element={<ProtectedRoute><div className="p-8">Gestão de Unidades - Em breve</div></ProtectedRoute>} />
-      <Route path="/admin/problemas" element={<ProtectedRoute><div className="p-8">Catálogo de Problemas - Em breve</div></ProtectedRoute>} />
+      <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/chamados" element={<ProtectedRoute><CentralChamados /></ProtectedRoute>} />
+      <Route path="/admin/chamados/:id" element={<ProtectedRoute><ChamadoDetalhe /></ProtectedRoute>} />
+      <Route path="/admin/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
+      <Route path="/admin/unidades" element={<ProtectedRoute><Unidades /></ProtectedRoute>} />
+      <Route path="/admin/problemas" element={<ProtectedRoute><Problemas /></ProtectedRoute>} />
       
-      {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

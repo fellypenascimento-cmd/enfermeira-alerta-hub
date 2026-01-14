@@ -1,21 +1,22 @@
 import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { useChamados } from '@/contexts/ChamadosContext';
+import { useChamadoById } from '@/hooks/useChamados';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { FadeIn } from '@/components/animations';
 import { 
   ArrowLeft, 
   Clock, 
   CheckCircle2, 
   AlertCircle,
   Building2,
-  User,
   Calendar,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,28 +30,38 @@ const statusConfig = {
 export default function ChamadoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getChamadoById } = useChamados();
+  const { data: chamado, isLoading } = useChamadoById(id || '');
 
-  const chamado = getChamadoById(id || '');
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="p-6 flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   if (!chamado) {
     return (
       <Layout>
         <div className="p-6 flex items-center justify-center min-h-[calc(100vh-4rem)]">
-          <Card className="w-full max-w-md text-center">
-            <CardContent className="pt-8 pb-6">
-              <FileText className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
-              <h2 className="text-xl font-bold text-foreground mb-2">
-                Chamado não encontrado
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                O chamado que você está procurando não existe ou foi removido.
-              </p>
-              <Button asChild>
-                <Link to="/chamados">Voltar aos Chamados</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <FadeIn>
+            <Card className="w-full max-w-md text-center">
+              <CardContent className="pt-8 pb-6">
+                <FileText className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
+                <h2 className="text-xl font-bold text-foreground mb-2">
+                  Chamado não encontrado
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                  O chamado que você está procurando não existe ou foi removido.
+                </p>
+                <Button asChild>
+                  <Link to="/chamados">Voltar aos Chamados</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </FadeIn>
         </div>
       </Layout>
     );
@@ -62,35 +73,34 @@ export default function ChamadoDetalhe() {
   return (
     <Layout>
       <div className="p-6 space-y-6">
-        {/* Header */}
-        <div>
-          <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-4">
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </Button>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-bold text-foreground">
-                  Chamado #{chamado.numero}
-                </h1>
-                <Badge variant={config.variant} className="gap-1">
-                  <StatusIcon className="w-4 h-4" />
-                  {config.label}
-                </Badge>
+        <FadeIn>
+          <div>
+            <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-4">
+              <ArrowLeft className="w-4 h-4" />
+              Voltar
+            </Button>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-2xl font-bold text-foreground">
+                    Chamado #{chamado.numero}
+                  </h1>
+                  <Badge variant={config.variant} className="gap-1">
+                    <StatusIcon className="w-4 h-4" />
+                    {config.label}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground">
+                  Aberto em {format(new Date(chamado.data_abertura), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
               </div>
-              <p className="text-muted-foreground">
-                Aberto em {format(new Date(chamado.dataAbertura), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-              </p>
             </div>
           </div>
-        </div>
+        </FadeIn>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Problem details */}
+          <FadeIn delay={0.1} className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -101,10 +111,7 @@ export default function ChamadoDetalhe() {
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">Tipo de Problema</p>
-                  <p className="font-medium">{chamado.problema?.titulo}</p>
-                  {chamado.problema?.descricao && (
-                    <p className="text-sm text-muted-foreground">{chamado.problema.descricao}</p>
-                  )}
+                  <p className="font-medium">{chamado.problema?.titulo || chamado.problema_texto || 'Não especificado'}</p>
                 </div>
                 <Separator />
                 <div>
@@ -114,7 +121,6 @@ export default function ChamadoDetalhe() {
               </CardContent>
             </Card>
 
-            {/* History */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -126,46 +132,7 @@ export default function ChamadoDetalhe() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {chamado.historico && chamado.historico.length > 0 ? (
-                  <div className="relative">
-                    <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
-                    <div className="space-y-6">
-                      {chamado.historico.map((item, index) => (
-                        <div key={item.id} className="relative pl-10">
-                          <div className="absolute left-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                            {item.statusNovo === 'resolvido' ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
-                            ) : item.statusNovo === 'em_atendimento' ? (
-                              <Clock className="w-4 h-4 text-blue-600" />
-                            ) : (
-                              <AlertCircle className="w-4 h-4 text-yellow-600" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant={statusConfig[item.statusNovo].variant} className="text-xs">
-                                {statusConfig[item.statusNovo].label}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(item.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                              </span>
-                            </div>
-                            {item.observacao && (
-                              <p className="text-sm text-muted-foreground">{item.observacao}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    Nenhuma atualização ainda.
-                  </p>
-                )}
-
-                {/* Opening event */}
-                <div className="relative pl-10 mt-6">
+                <div className="relative pl-10">
                   <div className="absolute left-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <FileText className="w-4 h-4 text-primary" />
                   </div>
@@ -173,18 +140,16 @@ export default function ChamadoDetalhe() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-medium">Chamado aberto</span>
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(chamado.dataAbertura), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {format(new Date(chamado.data_abertura), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </span>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </FadeIn>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Status Card */}
+          <FadeIn delay={0.2} className="space-y-6">
             <Card className={`border-2 ${config.color}`}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -197,7 +162,6 @@ export default function ChamadoDetalhe() {
               </CardContent>
             </Card>
 
-            {/* Info Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Informações</CardTitle>
@@ -207,32 +171,9 @@ export default function ChamadoDetalhe() {
                   <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Unidade</p>
-                    <p className="font-medium">{chamado.unidade?.nome}</p>
+                    <p className="font-medium">{chamado.unidade?.nome || 'Não especificada'}</p>
                   </div>
                 </div>
-
-                <Separator />
-
-                <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Solicitante</p>
-                    <p className="font-medium">{chamado.usuario?.nome}</p>
-                  </div>
-                </div>
-
-                {chamado.atendente && (
-                  <>
-                    <Separator />
-                    <div className="flex items-start gap-3">
-                      <User className="w-5 h-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Atendente</p>
-                        <p className="font-medium">{chamado.atendente.nome}</p>
-                      </div>
-                    </div>
-                  </>
-                )}
 
                 <Separator />
 
@@ -243,18 +184,18 @@ export default function ChamadoDetalhe() {
                     <div className="space-y-1 text-sm">
                       <p>
                         <span className="text-muted-foreground">Abertura:</span>{' '}
-                        {format(new Date(chamado.dataAbertura), "dd/MM/yyyy HH:mm")}
+                        {format(new Date(chamado.data_abertura), "dd/MM/yyyy HH:mm")}
                       </p>
-                      {chamado.dataAtendimento && (
+                      {chamado.data_atendimento && (
                         <p>
                           <span className="text-muted-foreground">Atendimento:</span>{' '}
-                          {format(new Date(chamado.dataAtendimento), "dd/MM/yyyy HH:mm")}
+                          {format(new Date(chamado.data_atendimento), "dd/MM/yyyy HH:mm")}
                         </p>
                       )}
-                      {chamado.dataFechamento && (
+                      {chamado.data_fechamento && (
                         <p>
                           <span className="text-muted-foreground">Fechamento:</span>{' '}
-                          {format(new Date(chamado.dataFechamento), "dd/MM/yyyy HH:mm")}
+                          {format(new Date(chamado.data_fechamento), "dd/MM/yyyy HH:mm")}
                         </p>
                       )}
                     </div>
@@ -262,7 +203,7 @@ export default function ChamadoDetalhe() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </FadeIn>
         </div>
       </div>
     </Layout>
