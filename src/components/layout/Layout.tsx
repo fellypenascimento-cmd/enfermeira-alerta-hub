@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useMockAuth } from '@/contexts/MockAuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Home,
   Plus,
@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,7 +27,6 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
-  adminOnly?: boolean;
 }
 
 const navItemsEnfermeira: NavItem[] = [
@@ -44,7 +44,7 @@ const navItemsAdmin: NavItem[] = [
 ];
 
 export function Layout({ children }: LayoutProps) {
-  const { user, signOut, isAdmin } = useMockAuth();
+  const { profile, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
@@ -81,12 +81,17 @@ export function Layout({ children }: LayoutProps) {
       </header>
 
       {/* Sidebar backdrop */}
-      {sidebarOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sidebar */}
       <aside 
@@ -111,13 +116,13 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center">
               <span className="text-sm font-medium text-sidebar-accent-foreground">
-                {user?.nome?.charAt(0).toUpperCase()}
+                {profile?.nome?.charAt(0).toUpperCase() || 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{user?.nome}</p>
+              <p className="font-medium text-sm truncate">{profile?.nome || 'Usuário'}</p>
               <p className="text-xs text-sidebar-foreground/60 capitalize">
-                {user?.role === 'admin' ? 'Administrador' : 'Enfermeira'}
+                {isAdmin ? 'Administrador' : 'Enfermeira'}
               </p>
             </div>
           </div>
@@ -155,7 +160,13 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main content */}
       <main className="flex-1 lg:ml-0 mt-16 lg:mt-0 overflow-auto">
-        {children}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {children}
+        </motion.div>
       </main>
     </div>
   );
