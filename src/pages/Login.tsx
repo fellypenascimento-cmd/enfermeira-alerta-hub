@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMockAuth } from '@/contexts/MockAuthContext';
-import { Building2, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import logoTocha from '@/assets/logo-tocha.png';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -57,18 +58,23 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Branding */}
+      {/* Left side - Branding with Logo */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
         <div className="relative z-10 flex flex-col items-center justify-center w-full p-12 text-primary-foreground">
-          <div className="w-24 h-24 bg-white/10 rounded-2xl flex items-center justify-center mb-8 backdrop-blur-sm">
-            <Building2 className="w-14 h-14" />
+          {/* Logo da empresa */}
+          <div className="mb-8">
+            <img 
+              src={logoTocha} 
+              alt="Tocha - Ilumine sua ideia" 
+              className="h-48 w-auto object-contain"
+            />
           </div>
-          <h1 className="text-4xl font-bold text-center mb-4">UBS HelpDesk</h1>
-          <p className="text-xl text-center text-primary-foreground/80 max-w-md">
-            Sistema de chamados para Unidades Básicas de Saúde
+          <h1 className="text-3xl font-bold text-center mb-3">Sistema UBS HelpDesk</h1>
+          <p className="text-lg text-center text-primary-foreground/80 max-w-md">
+            Gestão de chamados para Unidades Básicas de Saúde
           </p>
-          <div className="mt-12 grid grid-cols-3 gap-8 text-center">
+          <div className="mt-10 grid grid-cols-3 gap-8 text-center">
             <div>
               <p className="text-3xl font-bold">8</p>
               <p className="text-sm text-primary-foreground/70">Unidades</p>
@@ -92,14 +98,13 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-              <Building2 className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">UBS HelpDesk</h1>
-              <p className="text-sm text-muted-foreground">Sistema de Chamados</p>
-            </div>
+          <div className="lg:hidden flex flex-col items-center justify-center mb-8">
+            <img 
+              src={logoTocha} 
+              alt="Tocha - Ilumine sua ideia" 
+              className="h-24 w-auto object-contain mb-3"
+            />
+            <h1 className="text-xl font-bold">Sistema UBS HelpDesk</h1>
           </div>
 
           <Card className="border-0 shadow-xl">

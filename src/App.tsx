@@ -20,6 +20,7 @@ import Estoque from "./pages/admin/Estoque";
 import EstoqueEntrada from "./pages/admin/EstoqueEntrada";
 import EstoqueSaida from "./pages/admin/EstoqueSaida";
 import EstoqueDetalhe from "./pages/admin/EstoqueDetalhe";
+import EstoqueRelatorios from "./pages/admin/EstoqueRelatorios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,7 @@ function AppRoutes() {
       <Route path="/admin/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
       <Route path="/admin/estoque/entrada" element={<ProtectedRoute><EstoqueEntrada /></ProtectedRoute>} />
       <Route path="/admin/estoque/saida" element={<ProtectedRoute><EstoqueSaida /></ProtectedRoute>} />
+      <Route path="/admin/estoque/relatorios" element={<ProtectedRoute><EstoqueRelatorios /></ProtectedRoute>} />
       <Route path="/admin/estoque/:id" element={<ProtectedRoute><EstoqueDetalhe /></ProtectedRoute>} />
       
       <Route path="*" element={<NotFound />} />
