@@ -97,11 +97,13 @@ export default function Usuarios() {
 
         if (profileError) throw profileError;
 
-        // Update role if changed
+        // Update or insert role (UPSERT)
         const { error: roleError } = await supabase
           .from('user_roles')
-          .update({ role: formData.role })
-          .eq('user_id', editingUser.id);
+          .upsert(
+            { user_id: editingUser.id, role: formData.role },
+            { onConflict: 'user_id' }
+          );
 
         if (roleError) throw roleError;
 
