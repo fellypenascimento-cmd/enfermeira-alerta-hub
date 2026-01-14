@@ -16,7 +16,8 @@ import {
   Calendar,
   FileText,
   MessageSquare,
-  Loader2
+  Loader2,
+  User,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -201,6 +202,21 @@ export default function ChamadoDetalhe() {
                     </div>
                   </div>
                 </div>
+
+                {chamado.atendente && (
+                  <>
+                    <Separator />
+                    <div className="flex items-start gap-3">
+                      <User className="w-5 h-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Atendido por
+                        </p>
+                        <p className="font-medium">{chamado.atendente.nome}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </FadeIn>

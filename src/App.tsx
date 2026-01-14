@@ -16,6 +16,10 @@ import CentralChamados from "./pages/admin/CentralChamados";
 import Usuarios from "./pages/admin/Usuarios";
 import Unidades from "./pages/admin/Unidades";
 import Problemas from "./pages/admin/Problemas";
+import Estoque from "./pages/admin/Estoque";
+import EstoqueEntrada from "./pages/admin/EstoqueEntrada";
+import EstoqueSaida from "./pages/admin/EstoqueSaida";
+import EstoqueDetalhe from "./pages/admin/EstoqueDetalhe";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -75,6 +79,10 @@ function AppRoutes() {
       <Route path="/admin/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
       <Route path="/admin/unidades" element={<ProtectedRoute><Unidades /></ProtectedRoute>} />
       <Route path="/admin/problemas" element={<ProtectedRoute><Problemas /></ProtectedRoute>} />
+      <Route path="/admin/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
+      <Route path="/admin/estoque/entrada" element={<ProtectedRoute><EstoqueEntrada /></ProtectedRoute>} />
+      <Route path="/admin/estoque/saida" element={<ProtectedRoute><EstoqueSaida /></ProtectedRoute>} />
+      <Route path="/admin/estoque/:id" element={<ProtectedRoute><EstoqueDetalhe /></ProtectedRoute>} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -13,6 +13,7 @@ import {
   X,
   ChevronRight,
   ClipboardList,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -50,6 +51,7 @@ const navItemsAdministracao: NavItem[] = [
   { label: 'Usuários', href: '/admin/usuarios', icon: Users },
   { label: 'Unidades', href: '/admin/unidades', icon: Building2 },
   { label: 'Problemas', href: '/admin/problemas', icon: AlertCircle },
+  { label: 'Estoque', href: '/admin/estoque', icon: Package },
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -159,10 +161,11 @@ export function Layout({ children }: LayoutProps) {
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           {/* Seção Principal */}
           <div className="space-y-1">
-            {navItemsPrincipal.map((item) => (
+          {navItemsPrincipal.map((item) => (
               <NavLink
                 key={item.href}
                 to={item.href}
+                end
                 onClick={() => setSidebarOpen(false)}
                 className="block"
               >
@@ -208,10 +211,11 @@ export function Layout({ children }: LayoutProps) {
                 Administração
               </p>
               <div className="space-y-1">
-                {navItemsAdministracao.map((item) => (
+              {navItemsAdministracao.map((item) => (
                   <NavLink
                     key={item.href}
                     to={item.href}
+                    end
                     onClick={() => setSidebarOpen(false)}
                     className="block"
                   >
