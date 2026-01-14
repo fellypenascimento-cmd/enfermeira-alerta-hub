@@ -59,24 +59,36 @@ export function Layout({ children }: LayoutProps) {
     navigate('/auth');
   };
 
+  // Cor base institucional única - azul escuro UBS
+  const menuBaseColor = '#1e3a5f';
+  
   return (
     <div className="min-h-screen bg-background flex">
       {/* Mobile header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar-background border-b border-sidebar-border z-50 flex items-center justify-between px-4">
+      <header 
+        className="lg:hidden fixed top-0 left-0 right-0 h-14 z-50 flex items-center justify-between px-4"
+        style={{ 
+          backgroundColor: menuBaseColor,
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        }}
+      >
         <Button
           variant="ghost"
           size="icon"
-          className="text-sidebar-foreground hover:bg-sidebar-accent"
+          className="text-white/90 hover:text-white hover:bg-white/5"
           onClick={() => setSidebarOpen(!sidebarOpen)}
         >
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
         
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-sidebar-primary/20 rounded flex items-center justify-center">
-            <ClipboardList className="w-5 h-5 text-sidebar-foreground" />
+          <div 
+            className="w-8 h-8 rounded flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+          >
+            <ClipboardList className="w-5 h-5 text-white" />
           </div>
-          <span className="font-semibold text-sidebar-foreground">Sistema UBS</span>
+          <span className="font-semibold text-white">Sistema UBS</span>
         </div>
         
         <div className="w-10" />
@@ -98,79 +110,159 @@ export function Layout({ children }: LayoutProps) {
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar-background text-sidebar-foreground flex flex-col transform transition-transform duration-200 lg:transform-none",
+          "fixed lg:static inset-y-0 left-0 z-50 w-64 flex flex-col transform transition-transform duration-200 lg:transform-none",
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
+        style={{ backgroundColor: menuBaseColor }}
       >
         {/* Logo */}
-        <div className="h-14 flex items-center gap-3 px-4 border-b border-sidebar-border">
-          <div className="w-8 h-8 bg-sidebar-primary/20 rounded flex items-center justify-center">
-            <ClipboardList className="w-5 h-5 text-sidebar-foreground" />
+        <div 
+          className="h-14 flex items-center gap-3 px-4"
+          style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}
+        >
+          <div 
+            className="w-8 h-8 rounded flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+          >
+            <ClipboardList className="w-5 h-5 text-white" />
           </div>
-          <span className="font-semibold text-lg text-sidebar-foreground">Sistema UBS</span>
+          <span className="font-semibold text-lg text-white">Sistema UBS</span>
         </div>
 
         {/* User info */}
-        <div className="px-4 py-4 border-b border-sidebar-border">
-          <p className="text-sm text-sidebar-foreground/80 truncate mb-1">
+        <div 
+          className="px-4 py-4"
+          style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}
+        >
+          <p className="text-sm text-white/70 truncate mb-1">
             {profile?.email || 'usuario@email.com'}
           </p>
-          <Badge 
-            variant="outline" 
-            className="bg-sidebar-accent/50 text-sidebar-foreground border-sidebar-border text-xs"
+          <span 
+            className="inline-block px-2 py-0.5 text-xs font-medium rounded text-white/90"
+            style={{ 
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.15)'
+            }}
           >
             {isAdmin ? 'Administrador' : 'Enfermeira'}
-          </Badge>
+          </span>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
+          {navItems.slice(0, isAdmin ? 4 : 3).map((item) => (
             <NavLink
               key={item.href}
               to={item.href}
               onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors group",
-                  isActive 
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                )
-              }
+              className="block"
             >
               {({ isActive }) => (
-                <>
+                <div
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 group",
+                    isActive 
+                      ? "text-white" 
+                      : "text-white/60 hover:text-white/90"
+                  )}
+                  style={{ 
+                    backgroundColor: isActive 
+                      ? 'rgba(255, 255, 255, 0.1)' 
+                      : 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
                   <item.icon className="w-5 h-5 flex-shrink-0" />
                   <span className="flex-1">{item.label}</span>
                   {isActive && (
-                    <ChevronRight className="w-4 h-4 opacity-70" />
+                    <ChevronRight className="w-4 h-4 text-white/70" />
                   )}
-                </>
+                </div>
               )}
             </NavLink>
           ))}
 
           {/* Admin section label */}
           {isAdmin && (
-            <div className="pt-6 pb-2">
-              <p className="px-3 text-xs font-medium text-sidebar-foreground/50 uppercase tracking-wider">
-                Administração
-              </p>
-            </div>
+            <>
+              <div className="pt-6 pb-2">
+                <p className="px-3 text-xs font-medium text-white/40 uppercase tracking-wider">
+                  Administração
+                </p>
+              </div>
+              
+              {navItems.slice(4).map((item) => (
+                <NavLink
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className="block"
+                >
+                  {({ isActive }) => (
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 group",
+                        isActive 
+                          ? "text-white" 
+                          : "text-white/60 hover:text-white/90"
+                      )}
+                      style={{ 
+                        backgroundColor: isActive 
+                          ? 'rgba(255, 255, 255, 0.1)' 
+                          : 'transparent',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }
+                      }}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      <span className="flex-1">{item.label}</span>
+                      {isActive && (
+                        <ChevronRight className="w-4 h-4 text-white/70" />
+                      )}
+                    </div>
+                  )}
+                </NavLink>
+              ))}
+            </>
           )}
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t border-sidebar-border">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+        <div 
+          className="p-3"
+          style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}
+        >
+          <button
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-white/60 hover:text-white/90 transition-all duration-150"
+            style={{ backgroundColor: 'transparent' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
             onClick={handleSignOut}
           >
             <LogOut className="w-5 h-5" />
             <span>Sair</span>
-          </Button>
+          </button>
         </div>
       </aside>
 
