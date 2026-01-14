@@ -167,6 +167,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "estoque_itens_responsavel_entrada_id_fkey"
+            columns: ["responsavel_entrada_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "estoque_itens_unidade_atual_id_fkey"
             columns: ["unidade_atual_id"]
             isOneToOne: false
@@ -215,6 +222,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "estoque_itens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_movimentacoes_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
