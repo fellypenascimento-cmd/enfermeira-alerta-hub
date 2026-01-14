@@ -54,14 +54,24 @@ export function useChamadoById(id: string) {
         .select(`
           *,
           unidade:unidades(id, nome),
-          problema:problemas(id, titulo),
-          atendente:profiles!chamados_atendente_id_fkey(id, nome, email)
+          problema:problemas(id, titulo)
         `)
         .eq('id', id)
         .maybeSingle();
+      
+      // Buscar atendente separadamente se existir
+      let atendente = null;
+      if (data?.atendente_id) {
+        const { data: atendenteData } = await supabase
+          .from('profiles')
+          .select('id, nome, email')
+          .eq('id', data.atendente_id)
+          .single();
+        atendente = atendenteData;
+      }
 
       if (error) throw error;
-      return data as ChamadoWithRelations | null;
+      return data ? { ...data, atendente } as ChamadoWithRelations : null;
     },
     enabled: !!id,
   });

@@ -68,8 +68,7 @@ export function useEstoqueItens(options?: {
         .select(`
           *,
           produto:produtos(id, nome, categoria),
-          unidade_atual:unidades!estoque_itens_unidade_atual_id_fkey(id, nome),
-          responsavel_entrada:profiles!estoque_itens_responsavel_entrada_id_fkey(id, nome, email)
+          unidade_atual:unidades(id, nome)
         `)
         .order('created_at', { ascending: false });
 
@@ -99,14 +98,24 @@ export function useEstoqueItemById(id: string) {
         .select(`
           *,
           produto:produtos(id, nome, categoria, descricao),
-          unidade_atual:unidades!estoque_itens_unidade_atual_id_fkey(id, nome),
-          responsavel_entrada:profiles!estoque_itens_responsavel_entrada_id_fkey(id, nome, email)
+          unidade_atual:unidades(id, nome)
         `)
         .eq('id', id)
         .maybeSingle();
+      
+      // Buscar responsável separadamente
+      let responsavel_entrada = null;
+      if (data?.responsavel_entrada_id) {
+        const { data: respData } = await supabase
+          .from('profiles')
+          .select('id, nome, email')
+          .eq('id', data.responsavel_entrada_id)
+          .single();
+        responsavel_entrada = respData;
+      }
 
       if (error) throw error;
-      return data as EstoqueItemWithRelations | null;
+      return data ? { ...data, responsavel_entrada } as EstoqueItemWithRelations : null;
     },
     enabled: !!id,
   });
@@ -237,8 +246,7 @@ export function useEstoqueMovimentacoes(itemId?: string) {
         .select(`
           *,
           unidade_origem:unidades!estoque_movimentacoes_unidade_origem_id_fkey(id, nome),
-          unidade_destino:unidades!estoque_movimentacoes_unidade_destino_id_fkey(id, nome),
-          responsavel:profiles(id, nome, email)
+          unidade_destino:unidades!estoque_movimentacoes_unidade_destino_id_fkey(id, nome)
         `)
         .order('data_movimentacao', { ascending: false });
 
@@ -248,7 +256,24 @@ export function useEstoqueMovimentacoes(itemId?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as EstoqueMovimentacaoWithRelations[];
+      
+      // Buscar responsáveis separadamente
+      const movimentacoesComResponsavel = await Promise.all(
+        (data || []).map(async (mov) => {
+          let responsavel = null;
+          if (mov.responsavel_id) {
+            const { data: respData } = await supabase
+              .from('profiles')
+              .select('id, nome, email')
+              .eq('id', mov.responsavel_id)
+              .single();
+            responsavel = respData;
+          }
+          return { ...mov, responsavel } as EstoqueMovimentacaoWithRelations;
+        })
+      );
+      
+      return movimentacoesComResponsavel;
     },
     enabled: itemId ? !!itemId : true,
   });
