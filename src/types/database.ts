@@ -6,6 +6,7 @@ export interface Profile {
   nome: string;
   email: string;
   unidade_id: string | null;
+  perfil_texto: string | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;

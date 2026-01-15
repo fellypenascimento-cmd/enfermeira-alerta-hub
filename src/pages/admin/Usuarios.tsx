@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -31,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, UserPlus, Edit, UserX, UserCheck } from 'lucide-react';
+import { UserPlus, Edit, UserX, UserCheck, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
@@ -47,8 +48,10 @@ export default function Usuarios() {
     email: '',
     senha: '',
     unidade_id: '',
-    role: 'enfermeira' as 'admin' | 'enfermeira',
+    perfil_texto: '',
+    isAdmin: false,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -60,7 +63,8 @@ export default function Usuarios() {
       email: '',
       senha: '',
       unidade_id: '',
-      role: 'enfermeira',
+      perfil_texto: '',
+      isAdmin: false,
     });
     setEditingUser(null);
   };
@@ -73,7 +77,8 @@ export default function Usuarios() {
         email: user.email,
         senha: '',
         unidade_id: user.unidade_id || '',
-        role: user.role || 'enfermeira',
+        perfil_texto: user.perfil_texto || '',
+        isAdmin: user.role === 'admin',
       });
     } else {
       resetForm();
@@ -83,6 +88,9 @@ export default function Usuarios() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    
+    const role = formData.isAdmin ? 'admin' : 'enfermeira';
     
     try {
       if (editingUser) {
@@ -92,6 +100,7 @@ export default function Usuarios() {
           .update({
             nome: formData.nome,
             unidade_id: formData.unidade_id || null,
+            perfil_texto: formData.perfil_texto || null,
           })
           .eq('id', editingUser.id);
 
@@ -101,7 +110,7 @@ export default function Usuarios() {
         const { error: roleError } = await supabase
           .from('user_roles')
           .upsert(
-            { user_id: editingUser.id, role: formData.role },
+            { user_id: editingUser.id, role },
             { onConflict: 'user_id' }
           );
 
@@ -109,33 +118,26 @@ export default function Usuarios() {
 
         toast.success('Usuário atualizado com sucesso!');
       } else {
-        // Create new user via Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.senha,
-          options: {
-            data: {
-              nome: formData.nome,
-            },
-            emailRedirectTo: `${window.location.origin}/`,
+        // Create new user via Edge Function (won't affect admin's session)
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        const response = await supabase.functions.invoke('create-user', {
+          body: {
+            email: formData.email,
+            password: formData.senha,
+            nome: formData.nome,
+            unidade_id: formData.unidade_id || undefined,
+            role,
+            perfil_texto: formData.perfil_texto || undefined,
           },
         });
 
-        if (authError) throw authError;
+        if (response.error) {
+          throw new Error(response.error.message || 'Erro ao criar usuário');
+        }
 
-        if (authData.user) {
-          // Update profile with unidade
-          if (formData.unidade_id) {
-            await supabase
-              .from('profiles')
-              .update({ unidade_id: formData.unidade_id })
-              .eq('id', authData.user.id);
-          }
-
-          // Set role
-          await supabase
-            .from('user_roles')
-            .insert({ user_id: authData.user.id, role: formData.role });
+        if (response.data?.error) {
+          throw new Error(response.data.error);
         }
 
         toast.success('Usuário criado com sucesso!');
@@ -147,6 +149,8 @@ export default function Usuarios() {
     } catch (error: any) {
       console.error('Error:', error);
       toast.error(error.message || 'Erro ao salvar usuário');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -249,27 +253,38 @@ export default function Usuarios() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">Perfil</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value: 'admin' | 'enfermeira') => setFormData({ ...formData, role: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="enfermeira">Enfermeira</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="perfil_texto">Perfil</Label>
+                <Input
+                  id="perfil_texto"
+                  placeholder="Ex: Enfermeira, Técnico, Recepcionista"
+                  value={formData.perfil_texto}
+                  onChange={(e) => setFormData({ ...formData, perfil_texto: e.target.value })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="isAdmin" className="text-base flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Administrador
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Permite acesso completo ao sistema
+                  </p>
+                </div>
+                <Switch
+                  id="isAdmin"
+                  checked={formData.isAdmin}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isAdmin: checked })}
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">
-                  {editingUser ? 'Salvar' : 'Criar Usuário'}
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Salvando...' : editingUser ? 'Salvar' : 'Criar Usuário'}
                 </Button>
               </div>
             </form>
@@ -311,9 +326,15 @@ export default function Usuarios() {
                   <TableCell>{usuario.email}</TableCell>
                   <TableCell>{usuario.unidade?.nome || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={usuario.role === 'admin' ? 'default' : 'secondary'}>
-                      {usuario.role === 'admin' ? 'Administrador' : 'Enfermeira'}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <span>{usuario.perfil_texto || '-'}</span>
+                      {usuario.role === 'admin' && (
+                        <Badge variant="default" className="text-xs">
+                          <Shield className="h-3 w-3 mr-1" />
+                          Admin
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={usuario.ativo ? 'default' : 'outline'}>
