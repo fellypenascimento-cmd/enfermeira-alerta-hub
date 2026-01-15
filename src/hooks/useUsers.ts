@@ -30,6 +30,7 @@ export function useUsers() {
         return {
           ...profile,
           role: userRole?.role as AppRole | undefined,
+          unidade: profile.unidade as { id: string; nome: string } | null,
         };
       });
 
