@@ -180,6 +180,7 @@ export default function NovoChamado() {
                     value={descricao}
                     onChange={(e) => setDescricao(e.target.value)}
                     rows={5}
+                    maxLength={1000}
                     className={errors.descricao ? 'border-destructive' : ''}
                   />
                   <div className="flex items-center justify-between">
