@@ -146,7 +146,7 @@ export function Layout({
           backgroundColor: 'rgba(255, 255, 255, 0.1)',
           border: '1px solid rgba(255, 255, 255, 0.15)'
         }}>
-            {isAdmin ? 'Administrador' : 'Enfermeira'}
+            {isAdmin ? 'Administrador' : 'Seja bem-vindo(a)'}
           </span>
         </div>
 
