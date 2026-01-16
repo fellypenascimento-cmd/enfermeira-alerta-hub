@@ -19,6 +19,7 @@ import Problemas from "./pages/admin/Problemas";
 import Estoque from "./pages/admin/Estoque";
 import EstoqueEntrada from "./pages/admin/EstoqueEntrada";
 import EstoqueSaida from "./pages/admin/EstoqueSaida";
+import EstoqueBaixa from "./pages/admin/EstoqueBaixa";
 import EstoqueDetalhe from "./pages/admin/EstoqueDetalhe";
 import EstoqueRelatorios from "./pages/admin/EstoqueRelatorios";
 import NotFound from "./pages/NotFound";
@@ -89,6 +90,7 @@ function AppRoutes() {
       <Route path="/admin/estoque" element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
       <Route path="/admin/estoque/entrada" element={<ProtectedRoute adminOnly><EstoqueEntrada /></ProtectedRoute>} />
       <Route path="/admin/estoque/saida" element={<ProtectedRoute adminOnly><EstoqueSaida /></ProtectedRoute>} />
+      <Route path="/admin/estoque/baixa" element={<ProtectedRoute adminOnly><EstoqueBaixa /></ProtectedRoute>} />
       <Route path="/admin/estoque/relatorios" element={<ProtectedRoute adminOnly><EstoqueRelatorios /></ProtectedRoute>} />
       <Route path="/admin/estoque/:id" element={<ProtectedRoute adminOnly><EstoqueDetalhe /></ProtectedRoute>} />
       

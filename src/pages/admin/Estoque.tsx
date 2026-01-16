@@ -17,6 +17,7 @@ import {
   Building2,
   FileText,
   Hash,
+  XCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -53,6 +54,12 @@ export default function Estoque() {
                 <Link to="/admin/estoque/relatorios">
                   <FileText className="w-4 h-4 mr-2" />
                   Relatórios
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/10">
+                <Link to="/admin/estoque/baixa">
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Registrar Baixa
                 </Link>
               </Button>
               <Button asChild variant="outline">

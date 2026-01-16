@@ -320,3 +320,109 @@ export function useVerificarPatrimonio() {
     },
   });
 }
+
+// ==================== BAIXA DE EQUIPAMENTO ====================
+
+export function useRegistrarBaixa() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      dataBaixa,
+      motivo,
+    }: {
+      itemId: string;
+      dataBaixa: string;
+      motivo?: string;
+    }) => {
+      // Buscar item atual para registrar unidade anterior e validar status
+      const { data: itemAtual, error: fetchError } = await supabase
+        .from('estoque_itens')
+        .select('unidade_atual_id, status')
+        .eq('id', itemId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Validar: não permitir baixa duplicada
+      if (itemAtual?.status === 'baixa') {
+        throw new Error('Este equipamento já foi baixado.');
+      }
+
+      // Atualizar status do item para "baixa" e desvincular da unidade
+      const { error: updateError } = await supabase
+        .from('estoque_itens')
+        .update({
+          status: 'baixa' as EstoqueStatus,
+          unidade_atual_id: null, // Desvincula da unidade
+        })
+        .eq('id', itemId);
+
+      if (updateError) throw updateError;
+
+      // Registrar movimentação de baixa no histórico
+      const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
+        item_id: itemId,
+        tipo: 'baixa' as MovimentacaoTipo,
+        data_movimentacao: dataBaixa,
+        unidade_origem_id: itemAtual?.unidade_atual_id || null,
+        unidade_destino_id: null,
+        responsavel_id: user?.id,
+        observacao: motivo || 'Baixa de equipamento',
+      });
+
+      if (movError) throw movError;
+
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+      toast.success('Baixa registrada com sucesso!');
+    },
+    onError: (error: any) => {
+      console.error('Error registering baixa:', error);
+      toast.error(error.message || 'Erro ao registrar baixa');
+    },
+  });
+}
+
+// ==================== BUSCA ITENS PARA BAIXA ====================
+
+export function useEstoqueItensParaBaixa(searchTerm?: string) {
+  return useQuery({
+    queryKey: ['estoque-itens-para-baixa', searchTerm],
+    queryFn: async () => {
+      let query = supabase
+        .from('estoque_itens')
+        .select(`
+          *,
+          produto:produtos(id, nome, categoria),
+          unidade_atual:unidades(id, nome)
+        `)
+        .in('status', ['disponivel', 'em_uso'])
+        .order('created_at', { ascending: false });
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Filtrar no cliente se houver termo de busca
+      let filteredData = data as EstoqueItemWithRelations[];
+      
+      if (searchTerm && searchTerm.trim()) {
+        const term = searchTerm.toLowerCase().trim();
+        filteredData = filteredData.filter((item) => {
+          const matchPatrimonio = item.numero_patrimonio?.toLowerCase().includes(term);
+          const matchProduto = item.produto?.nome?.toLowerCase().includes(term);
+          return matchPatrimonio || matchProduto;
+        });
+      }
+
+      return filteredData;
+    },
+  });
+}
