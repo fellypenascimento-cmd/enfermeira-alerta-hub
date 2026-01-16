@@ -753,8 +753,8 @@ export default function Usuarios() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {/* Oculta ações para o admin master */}
-                          {usuario.email !== ADMIN_MASTER_EMAIL ? (
+                          {/* Permite edição se NÃO for admin master OU se for o próprio admin master editando */}
+                          {usuario.email !== ADMIN_MASTER_EMAIL || currentUser?.email === ADMIN_MASTER_EMAIL ? (
                             <>
                               <Button
                                 variant="ghost"
@@ -764,27 +764,32 @@ export default function Usuarios() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleToggleActive(usuario)}
-                                title={usuario.ativo !== false ? 'Desativar' : 'Ativar'}
-                              >
-                                {usuario.ativo !== false ? (
-                                  <UserX className="h-4 w-4 text-amber-600" />
-                                ) : (
-                                  <UserCheck className="h-4 w-4 text-emerald-600" />
-                                )}
-                              </Button>
-                              {usuario.id !== currentUser?.id && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setUserToDelete(usuario)}
-                                  title="Excluir"
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                              {/* Oculta botões de desativar/excluir para admin master */}
+                              {usuario.email !== ADMIN_MASTER_EMAIL && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleToggleActive(usuario)}
+                                    title={usuario.ativo !== false ? 'Desativar' : 'Ativar'}
+                                  >
+                                    {usuario.ativo !== false ? (
+                                      <UserX className="h-4 w-4 text-amber-600" />
+                                    ) : (
+                                      <UserCheck className="h-4 w-4 text-emerald-600" />
+                                    )}
+                                  </Button>
+                                  {usuario.id !== currentUser?.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => setUserToDelete(usuario)}
+                                      title="Excluir"
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  )}
+                                </>
                               )}
                             </>
                           ) : (
