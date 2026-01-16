@@ -124,7 +124,7 @@ export function Layout({
     }}>
         {/* Logo */}
         <NavLink 
-          to={isAdmin ? '/admin/dashboard' : '/dashboard'}
+          to={isAdmin ? '/admin/dashboard' : '/chamados'}
           className="h-16 flex items-center justify-center px-4 hover:opacity-90 transition-opacity"
           style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}
         >
