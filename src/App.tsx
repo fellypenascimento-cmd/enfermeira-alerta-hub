@@ -60,7 +60,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to={isAdmin ? "/admin/dashboard" : "/dashboard"} replace />;
+    // Admin vai para dashboard, não-admin vai direto para chamados
+    return <Navigate to={isAdmin ? "/admin/dashboard" : "/chamados"} replace />;
   }
 
   return <>{children}</>;
@@ -72,8 +73,8 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/auth" replace />} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       
-      {/* Rotas para usuários comuns (não-admin) */}
-      <Route path="/dashboard" element={<ProtectedRoute><Navigate to="/chamados" replace /></ProtectedRoute>} />
+      {/* Rota /dashboard - redireciona com base no perfil */}
+      <Route path="/dashboard" element={<ProtectedRoute adminOnly><Navigate to="/admin/dashboard" replace /></ProtectedRoute>} />
       <Route path="/chamados" element={<ProtectedRoute><MeusChamados /></ProtectedRoute>} />
       <Route path="/chamados/novo" element={<ProtectedRoute><NovoChamado /></ProtectedRoute>} />
       <Route path="/chamados/:id" element={<ProtectedRoute><ChamadoDetalhe /></ProtectedRoute>} />
