@@ -482,23 +482,26 @@ export default function Usuarios() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="perfil_texto">Perfil</Label>
+                    <Label htmlFor="perfil_texto">Cargo / Título</Label>
                     <Input
                       id="perfil_texto"
-                      placeholder="Ex: Enfermeira, Técnico, Recepcionista"
+                      placeholder="Ex: Diretor(a), Enfermeira, Técnico, Recepcionista"
                       value={formData.perfil_texto}
                       onChange={(e) => setFormData({ ...formData, perfil_texto: e.target.value })}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Nome do cargo que será exibido no perfil do usuário
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border border-border p-4">
                     <div className="space-y-0.5">
                       <Label htmlFor="isAdmin" className="text-base flex items-center gap-2">
                         <Shield className="h-4 w-4" />
-                        Administrador
+                        Permissões de Administrador
                       </Label>
                       <p className="text-sm text-muted-foreground">
-                        Permite acesso completo ao sistema
+                        Permite acesso ao Dashboard, Estoque, Usuários e configurações do sistema
                       </p>
                     </div>
                     <Switch
