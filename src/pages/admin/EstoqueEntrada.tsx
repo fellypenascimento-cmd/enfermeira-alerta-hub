@@ -266,11 +266,23 @@ export default function EstoqueEntrada() {
                   <Label htmlFor="quantidade">Quantidade *</Label>
                   <Input
                     id="quantidade"
-                    type="number"
-                    min={1}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={quantidade}
-                    onChange={(e) => setQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      const num = parseInt(val) || 1;
+                      setQuantidade(Math.max(1, num));
+                    }}
+                    onBlur={() => {
+                      if (quantidade < 1) setQuantidade(1);
+                    }}
+                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Digite o número de itens a registrar
+                  </p>
                 </div>
 
                 {/* Possui Patrimônio? */}

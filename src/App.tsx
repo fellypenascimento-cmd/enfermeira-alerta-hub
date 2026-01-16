@@ -25,8 +25,8 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
+  const { user, isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -38,6 +38,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Bloqueia acesso a rotas admin para não-admins
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/chamados" replace />;
   }
 
   return <>{children}</>;
@@ -67,24 +72,24 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/auth" replace />} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       
-      {/* Enfermeira routes */}
-      <Route path="/dashboard" element={<ProtectedRoute><EnfermeiraDashboard /></ProtectedRoute>} />
+      {/* Rotas para usuários comuns (não-admin) */}
+      <Route path="/dashboard" element={<ProtectedRoute><Navigate to="/chamados" replace /></ProtectedRoute>} />
       <Route path="/chamados" element={<ProtectedRoute><MeusChamados /></ProtectedRoute>} />
       <Route path="/chamados/novo" element={<ProtectedRoute><NovoChamado /></ProtectedRoute>} />
       <Route path="/chamados/:id" element={<ProtectedRoute><ChamadoDetalhe /></ProtectedRoute>} />
       
-      {/* Admin routes */}
-      <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-      <Route path="/admin/chamados" element={<ProtectedRoute><CentralChamados /></ProtectedRoute>} />
-      <Route path="/admin/chamados/:id" element={<ProtectedRoute><ChamadoDetalhe /></ProtectedRoute>} />
-      <Route path="/admin/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
-      <Route path="/admin/unidades" element={<ProtectedRoute><Unidades /></ProtectedRoute>} />
-      <Route path="/admin/problemas" element={<ProtectedRoute><Problemas /></ProtectedRoute>} />
-      <Route path="/admin/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
-      <Route path="/admin/estoque/entrada" element={<ProtectedRoute><EstoqueEntrada /></ProtectedRoute>} />
-      <Route path="/admin/estoque/saida" element={<ProtectedRoute><EstoqueSaida /></ProtectedRoute>} />
-      <Route path="/admin/estoque/relatorios" element={<ProtectedRoute><EstoqueRelatorios /></ProtectedRoute>} />
-      <Route path="/admin/estoque/:id" element={<ProtectedRoute><EstoqueDetalhe /></ProtectedRoute>} />
+      {/* Rotas exclusivas para Administradores */}
+      <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/chamados" element={<ProtectedRoute adminOnly><CentralChamados /></ProtectedRoute>} />
+      <Route path="/admin/chamados/:id" element={<ProtectedRoute adminOnly><ChamadoDetalhe /></ProtectedRoute>} />
+      <Route path="/admin/usuarios" element={<ProtectedRoute adminOnly><Usuarios /></ProtectedRoute>} />
+      <Route path="/admin/unidades" element={<ProtectedRoute adminOnly><Unidades /></ProtectedRoute>} />
+      <Route path="/admin/problemas" element={<ProtectedRoute adminOnly><Problemas /></ProtectedRoute>} />
+      <Route path="/admin/estoque" element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
+      <Route path="/admin/estoque/entrada" element={<ProtectedRoute adminOnly><EstoqueEntrada /></ProtectedRoute>} />
+      <Route path="/admin/estoque/saida" element={<ProtectedRoute adminOnly><EstoqueSaida /></ProtectedRoute>} />
+      <Route path="/admin/estoque/relatorios" element={<ProtectedRoute adminOnly><EstoqueRelatorios /></ProtectedRoute>} />
+      <Route path="/admin/estoque/:id" element={<ProtectedRoute adminOnly><EstoqueDetalhe /></ProtectedRoute>} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>
