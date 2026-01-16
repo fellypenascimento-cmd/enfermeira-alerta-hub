@@ -125,7 +125,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Limpar estados locais primeiro
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setRole(null);
+      
+      // Tentar logout no servidor (pode falhar se sessão expirou)
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      console.error('Error during sign out:', error);
+      // Mesmo com erro, os estados já foram limpos
+    }
   };
 
   const value: AuthContextType = {

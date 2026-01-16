@@ -17,19 +17,15 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-// Navegação principal - comum a todos os perfis
+// Navegação principal - para usuários não-admin (apenas chamados)
 const navItemsEnfermeira: NavItem[] = [{
-  label: 'Dashboard',
-  href: '/dashboard',
-  icon: LayoutDashboard
+  label: 'Novo Chamado',
+  href: '/chamados/novo',
+  icon: Plus
 }, {
   label: 'Meus Chamados',
   href: '/chamados',
   icon: ClipboardList
-}, {
-  label: 'Novo Chamado',
-  href: '/chamados/novo',
-  icon: Plus
 }];
 
 // Navegação principal - para admin
