@@ -43,7 +43,7 @@ export default function EstoqueEntrada() {
 
   const [produtoId, setProdutoId] = React.useState('');
   const [novoProdutoNome, setNovoProdutoNome] = React.useState('');
-  const [quantidade, setQuantidade] = React.useState(1);
+  const [quantidade, setQuantidade] = React.useState('');
   const [possuiPatrimonio, setPossuiPatrimonio] = React.useState(false);
   const [patrimonios, setPatrimonios] = React.useState<PatrimonioField[]>([]);
   const [dataEntrada, setDataEntrada] = React.useState<Date>(new Date());
@@ -53,8 +53,9 @@ export default function EstoqueEntrada() {
 
   // Atualiza campos de patrimônio quando quantidade ou switch muda
   React.useEffect(() => {
-    if (possuiPatrimonio && quantidade > 0) {
-      const newPatrimonios = Array.from({ length: quantidade }, (_, i) => ({
+    const qtd = parseInt(quantidade) || 0;
+    if (possuiPatrimonio && qtd > 0) {
+      const newPatrimonios = Array.from({ length: qtd }, (_, i) => ({
         value: patrimonios[i]?.value || '',
         isValid: patrimonios[i]?.isValid ?? null,
         isChecking: false,
@@ -103,6 +104,12 @@ export default function EstoqueEntrada() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const qtdNum = parseInt(quantidade) || 0;
+    if (qtdNum < 1) {
+      toast.error('Informe uma quantidade válida (mínimo 1)');
+      return;
+    }
 
     // Validações
     let finalProdutoId = produtoId;
@@ -159,7 +166,7 @@ export default function EstoqueEntrada() {
         await createEstoqueItem.mutateAsync({
           produto_id: finalProdutoId,
           numero_patrimonio: null,
-          quantidade,
+          quantidade: qtdNum,
           data_entrada: dataEntrada.toISOString(),
           observacao_entrada: observacao || null,
         });
@@ -272,12 +279,9 @@ export default function EstoqueEntrada() {
                     value={quantidade}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '');
-                      const num = parseInt(val) || 1;
-                      setQuantidade(Math.max(1, num));
+                      setQuantidade(val);
                     }}
-                    onBlur={() => {
-                      if (quantidade < 1) setQuantidade(1);
-                    }}
+                    placeholder="Digite a quantidade"
                     className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <p className="text-xs text-muted-foreground">
@@ -286,13 +290,13 @@ export default function EstoqueEntrada() {
                 </div>
 
                 {/* Possui Patrimônio? */}
-                {quantidade > 0 && (
+                {parseInt(quantidade) > 0 && (
                   <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
                     <div>
                       <Label htmlFor="patrimonio-switch">Este produto possui número de patrimônio?</Label>
                       <p className="text-sm text-muted-foreground">
                         {possuiPatrimonio
-                          ? `Informe ${quantidade} número(s) de patrimônio único(s)`
+                          ? `Informe ${parseInt(quantidade) || 0} número(s) de patrimônio único(s)`
                           : 'Marque se cada item possui identificação patrimonial'}
                       </p>
                     </div>
