@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { ChamadoStatus, ChamadoWithRelations } from '@/types/database';
+import type { ChamadoStatus, ChamadoWithRelations, ChamadoHistoricoWithUser } from '@/types/database';
 import { toast } from 'sonner';
 
 export function useChamados(options?: { 
@@ -209,5 +209,39 @@ export function useChamadosStats() {
       return stats;
     },
     enabled: !!user,
+  });
+}
+
+export function useChamadoHistorico(chamadoId: string) {
+  return useQuery({
+    queryKey: ['chamado-historico', chamadoId],
+    queryFn: async () => {
+      // Buscar histórico
+      const { data: historico, error } = await supabase
+        .from('chamados_historico')
+        .select('*')
+        .eq('chamado_id', chamadoId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      // Buscar nomes dos usuários para cada entrada
+      const historicoComUsuarios = await Promise.all(
+        (historico || []).map(async (entry) => {
+          if (entry.usuario_id) {
+            const { data: usuario } = await supabase
+              .from('profiles')
+              .select('id, nome')
+              .eq('id', entry.usuario_id)
+              .single();
+            return { ...entry, usuario };
+          }
+          return { ...entry, usuario: null };
+        })
+      );
+
+      return historicoComUsuarios as ChamadoHistoricoWithUser[];
+    },
+    enabled: !!chamadoId,
   });
 }

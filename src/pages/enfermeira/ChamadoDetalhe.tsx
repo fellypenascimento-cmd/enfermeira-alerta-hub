@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { useChamadoById } from '@/hooks/useChamados';
+import { useChamadoById, useChamadoHistorico } from '@/hooks/useChamados';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,10 +28,17 @@ const statusConfig = {
   resolvido: { label: 'Resolvido', variant: 'success' as const, icon: CheckCircle2, color: 'bg-green-100 text-green-700 border-green-300' },
 };
 
+const statusLabels: Record<string, string> = {
+  aberto: 'Chamado aberto',
+  em_atendimento: 'Em atendimento',
+  resolvido: 'Resolvido',
+};
+
 export default function ChamadoDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: chamado, isLoading } = useChamadoById(id || '');
+  const { data: historico, isLoading: isLoadingHistorico } = useChamadoHistorico(id || '');
 
   if (isLoading) {
     return (
@@ -70,6 +77,11 @@ export default function ChamadoDetalhe() {
 
   const config = statusConfig[chamado.status];
   const StatusIcon = config.icon;
+
+  // Encontrar a mensagem de encerramento (última entrada com status "resolvido")
+  const mensagemEncerramento = historico?.find(
+    (h) => h.status_novo === 'resolvido' && h.observacao
+  );
 
   return (
     <Layout>
@@ -122,6 +134,35 @@ export default function ChamadoDetalhe() {
               </CardContent>
             </Card>
 
+            {/* Mensagem de Encerramento - destacada para chamados resolvidos */}
+            {chamado.status === 'resolvido' && mensagemEncerramento && (
+              <Card className="border-2 border-green-200 bg-green-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-green-700">
+                    <CheckCircle2 className="w-5 h-5" />
+                    Mensagem de Encerramento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-wrap text-foreground mb-4">
+                    {mensagemEncerramento.observacao}
+                  </p>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <User className="w-4 h-4" />
+                      <span>{mensagemEncerramento.usuario?.nome || 'Administrador'}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        {format(new Date(mensagemEncerramento.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -133,19 +174,61 @@ export default function ChamadoDetalhe() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="relative pl-10">
-                  <div className="absolute left-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-primary" />
+                {isLoadingHistorico ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium">Chamado aberto</span>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(chamado.data_abertura), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                      </span>
-                    </div>
+                ) : (
+                  <div className="space-y-4">
+                    {historico?.map((entry, index) => {
+                      const isResolvido = entry.status_novo === 'resolvido';
+                      const isEmAtendimento = entry.status_novo === 'em_atendimento';
+                      
+                      return (
+                        <div key={entry.id} className="relative pl-10">
+                          <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                            isResolvido 
+                              ? 'bg-green-100' 
+                              : isEmAtendimento 
+                                ? 'bg-blue-100' 
+                                : 'bg-primary/10'
+                          }`}>
+                            {isResolvido ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            ) : isEmAtendimento ? (
+                              <Clock className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium">
+                                {statusLabels[entry.status_novo || ''] || entry.observacao}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                            {entry.usuario?.nome && (
+                              <p className="text-xs text-muted-foreground">
+                                por {entry.usuario.nome}
+                              </p>
+                            )}
+                            {entry.observacao && entry.status_novo !== 'resolvido' && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {entry.observacao}
+                              </p>
+                            )}
+                          </div>
+                          {index < (historico?.length || 0) - 1 && (
+                            <div className="absolute left-4 top-8 w-px h-6 bg-border" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </FadeIn>

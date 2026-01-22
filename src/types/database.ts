@@ -64,6 +64,17 @@ export interface ChamadoHistorico {
   created_at: string;
 }
 
+export interface ChamadoHistoricoWithUser extends ChamadoHistorico {
+  usuario?: { id: string; nome: string } | null;
+}
+
+export interface ChamadoNotification {
+  id: string;
+  numero: number;
+  unidade: string | null;
+  data: string;
+}
+
 // Extended types with relations
 export interface ChamadoWithRelations extends Chamado {
   unidade?: { id: string; nome: string } | null;

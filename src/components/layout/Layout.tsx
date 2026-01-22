@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Badge } from '@/components/ui/badge';
 import logoTocha from '@/assets/logo-tocha.png';
+import { NotificationBell } from '@/components/NotificationBell';
+
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -28,19 +29,11 @@ const navItemsEnfermeira: NavItem[] = [{
   icon: ClipboardList
 }];
 
-// Navegação principal - para admin
+// Navegação principal - para admin (apenas gestão de chamados, SEM criar chamados próprios)
 const navItemsPrincipalAdmin: NavItem[] = [{
   label: 'Dashboard',
   href: '/admin/dashboard',
   icon: LayoutDashboard
-}, {
-  label: 'Meus Chamados',
-  href: '/chamados',
-  icon: ClipboardList
-}, {
-  label: 'Novo Chamado',
-  href: '/chamados/novo',
-  icon: Plus
 }, {
   label: 'Todos os Chamados',
   href: '/admin/chamados',
@@ -104,7 +97,8 @@ export function Layout({
           />
         </div>
         
-        <div className="w-10" />
+        {/* Sino de notificações para admin no mobile */}
+        {isAdmin ? <NotificationBell /> : <div className="w-10" />}
       </header>
 
       {/* Sidebar backdrop */}
@@ -136,18 +130,22 @@ export function Layout({
         </NavLink>
 
         {/* User info */}
-        <div className="px-4 py-4" style={{
+        <div className="px-4 py-4 flex items-center justify-between" style={{
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
       }}>
-          <p className="text-sm text-white/70 truncate mb-1">
-            {profile?.nome || profile?.email || 'Usuário'}
-          </p>
-          <span className="inline-block px-2 py-0.5 text-xs font-medium rounded text-white/90" style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-          border: '1px solid rgba(255, 255, 255, 0.15)'
-        }}>
-            {isAdmin ? 'Administrador' : 'Seja bem-vindo(a)'}
-          </span>
+          <div>
+            <p className="text-sm text-white/70 truncate mb-1">
+              {profile?.nome || profile?.email || 'Usuário'}
+            </p>
+            <span className="inline-block px-2 py-0.5 text-xs font-medium rounded text-white/90" style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.15)'
+          }}>
+              {isAdmin ? 'Administrador' : 'Seja bem-vindo(a)'}
+            </span>
+          </div>
+          {/* Sino de notificações para admin no desktop */}
+          {isAdmin && <div className="hidden lg:block"><NotificationBell /></div>}
         </div>
 
         {/* Navigation */}

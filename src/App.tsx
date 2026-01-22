@@ -26,7 +26,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
+function ProtectedRoute({ children, adminOnly = false, userOnly = false }: { children: React.ReactNode; adminOnly?: boolean; userOnly?: boolean }) {
   const { user, isAdmin, loading } = useAuth();
 
   if (loading) {
@@ -44,6 +44,11 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
   // Bloqueia acesso a rotas admin para não-admins
   if (adminOnly && !isAdmin) {
     return <Navigate to="/chamados" replace />;
+  }
+
+  // Bloqueia acesso a rotas de usuário comum (enfermeiras) para admins
+  if (userOnly && isAdmin) {
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -76,8 +81,10 @@ function AppRoutes() {
       
       {/* Rota /dashboard - redireciona com base no perfil */}
       <Route path="/dashboard" element={<ProtectedRoute adminOnly><Navigate to="/admin/dashboard" replace /></ProtectedRoute>} />
-      <Route path="/chamados" element={<ProtectedRoute><MeusChamados /></ProtectedRoute>} />
-      <Route path="/chamados/novo" element={<ProtectedRoute><NovoChamado /></ProtectedRoute>} />
+      
+      {/* Rotas de chamados para usuários comuns - Admin NÃO pode acessar */}
+      <Route path="/chamados" element={<ProtectedRoute userOnly><MeusChamados /></ProtectedRoute>} />
+      <Route path="/chamados/novo" element={<ProtectedRoute userOnly><NovoChamado /></ProtectedRoute>} />
       <Route path="/chamados/:id" element={<ProtectedRoute><ChamadoDetalhe /></ProtectedRoute>} />
       
       {/* Rotas exclusivas para Administradores */}
