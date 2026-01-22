@@ -7,25 +7,42 @@ import { toast } from 'sonner';
 import { useNotificationSound } from './useNotificationSound';
 
 export function useRealtimeChamados() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user, loading } = useAuth();
   const queryClient = useQueryClient();
   const [novosCount, setNovosCount] = useState(0);
   const [ultimosChamados, setUltimosChamados] = useState<ChamadoNotification[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const { soundEnabled, toggleSound, playNotificationSound } = useNotificationSound();
   const hasLoggedConnection = useRef(false);
+  
+  // Usar ref para a função de som para evitar que seja dependência do useEffect
+  const playNotificationSoundRef = useRef(playNotificationSound);
+  playNotificationSoundRef.current = playNotificationSound;
 
   const limparContador = useCallback(() => {
     setNovosCount(0);
   }, []);
 
   useEffect(() => {
+    // Log detalhado do estado atual
+    console.log('[Realtime Hook] Estado:', { 
+      isAdmin, 
+      userId: user?.id, 
+      loading,
+      timestamp: new Date().toISOString()
+    });
+
+    if (loading) {
+      console.log('[Realtime] Aguardando carregamento da autenticação...');
+      return;
+    }
+
     if (!isAdmin) {
       console.log('[Realtime] Usuário não é admin, subscription não iniciada');
       return;
     }
 
-    console.log('[Realtime] Iniciando subscription para chamados...');
+    console.log('[Realtime] ★ Iniciando subscription para chamados...');
 
     const channel = supabase
       .channel('chamados-realtime-notifications')
@@ -37,14 +54,15 @@ export function useRealtimeChamados() {
           table: 'chamados',
         },
         async (payload) => {
-          console.log('[Realtime] INSERT recebido:', payload.new.id);
+          console.log('[Realtime] ★★★ INSERT recebido:', payload.new.id);
           
           // Invalidar queries IMEDIATAMENTE para garantir atualização
+          console.log('[Realtime] Invalidando queries...');
           queryClient.invalidateQueries({ queryKey: ['chamados'] });
           queryClient.invalidateQueries({ queryKey: ['chamados-stats'] });
 
-          // Tocar som de notificação
-          playNotificationSound();
+          // Tocar som de notificação usando ref (não causa re-subscribe)
+          playNotificationSoundRef.current();
 
           try {
             // Buscar detalhes do chamado com unidade
@@ -70,10 +88,16 @@ export function useRealtimeChamados() {
               toast.info(`Novo chamado #${data.numero}`, {
                 description: data.unidade?.nome ? `Unidade: ${data.unidade.nome}` : 'Nova solicitação',
               });
+              
+              console.log('[Realtime] Notificação processada com sucesso');
             }
           } catch (error) {
             console.error('[Realtime] Erro ao buscar detalhes:', error);
             // Mesmo com erro, as queries já foram invalidadas acima
+            // Mostrar toast genérico
+            toast.info('Novo chamado recebido', {
+              description: 'A lista será atualizada automaticamente',
+            });
           }
         }
       )
@@ -98,15 +122,15 @@ export function useRealtimeChamados() {
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
           if (!hasLoggedConnection.current) {
-            console.log('[Realtime] ✓ Conectado com sucesso!');
+            console.log('[Realtime] ✓ Conectado com sucesso ao canal de chamados!');
             hasLoggedConnection.current = true;
           }
         } else if (status === 'CHANNEL_ERROR') {
           setIsConnected(false);
-          console.error('[Realtime] Erro no canal:', err);
+          console.error('[Realtime] ✗ Erro no canal:', err);
         } else if (status === 'TIMED_OUT') {
           setIsConnected(false);
-          console.warn('[Realtime] Conexão expirou');
+          console.warn('[Realtime] ✗ Conexão expirou');
         } else if (status === 'CLOSED') {
           setIsConnected(false);
           console.log('[Realtime] Canal fechado');
@@ -118,7 +142,7 @@ export function useRealtimeChamados() {
       hasLoggedConnection.current = false;
       supabase.removeChannel(channel);
     };
-  }, [isAdmin, queryClient, playNotificationSound]);
+  }, [isAdmin, user?.id, loading, queryClient]); // Removido playNotificationSound das dependências
 
   return { 
     novosCount, 

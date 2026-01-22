@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import logoTocha from '@/assets/logo-tocha.png';
 import { NotificationBell } from '@/components/NotificationBell';
+import { RealtimeSubscriber } from '@/components/RealtimeSubscriber';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -80,6 +81,8 @@ export function Layout({
   // Cor base institucional única - azul escuro UBS
   const menuBaseColor = '#1e3a5f';
   return <div className="min-h-screen bg-background flex">
+      {/* Componente invisível que mantém realtime ativo para admins */}
+      {isAdmin && <RealtimeSubscriber />}
       {/* Mobile header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-14 z-50 flex items-center justify-between px-4" style={{
       backgroundColor: menuBaseColor,
