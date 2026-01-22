@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ChamadoNotification } from '@/types/database';
@@ -6,6 +7,7 @@ import { toast } from 'sonner';
 
 export function useRealtimeChamados() {
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [novosCount, setNovosCount] = useState(0);
   const [ultimosChamados, setUltimosChamados] = useState<ChamadoNotification[]>([]);
 
@@ -46,6 +48,10 @@ export function useRealtimeChamados() {
               setNovosCount((prev) => prev + 1);
               setUltimosChamados((prev) => [notification, ...prev.slice(0, 4)]);
 
+              // Invalidar queries para atualizar lista de chamados automaticamente
+              queryClient.invalidateQueries({ queryKey: ['chamados'] });
+              queryClient.invalidateQueries({ queryKey: ['chamados-stats'] });
+
               // Toast de notificação
               toast.info(`Novo chamado #${data.numero}`, {
                 description: data.unidade?.nome ? `Unidade: ${data.unidade.nome}` : 'Nova solicitação',
@@ -56,12 +62,27 @@ export function useRealtimeChamados() {
           }
         }
       )
+      // Escutar eventos de UPDATE (mudança de status)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chamados',
+        },
+        async (payload) => {
+          // Invalidar queries para refletir mudanças de status em tempo real
+          queryClient.invalidateQueries({ queryKey: ['chamados'] });
+          queryClient.invalidateQueries({ queryKey: ['chamado', payload.new.id] });
+          queryClient.invalidateQueries({ queryKey: ['chamados-stats'] });
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAdmin]);
+  }, [isAdmin, queryClient]);
 
   return { novosCount, ultimosChamados, limparContador };
 }
