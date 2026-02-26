@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FadeIn } from '@/components/animations';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   ArrowUpFromLine,
@@ -22,6 +23,8 @@ import {
   Building2,
   Hash,
   Search,
+  MapPin,
+  Layers,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,9 +40,10 @@ export default function EstoqueSaida() {
   const [unidadeDestinoId, setUnidadeDestinoId] = React.useState('');
   const [dataSaida, setDataSaida] = React.useState<Date>(new Date());
   const [observacao, setObservacao] = React.useState('');
+  const [localEspecifico, setLocalEspecifico] = React.useState('');
+  const [quantidadeSaida, setQuantidadeSaida] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Filtrar itens por busca
   const itensFiltrados = React.useMemo(() => {
     if (!itensDisponiveis) return [];
     if (!searchTerm) return itensDisponiveis;
@@ -53,16 +57,25 @@ export default function EstoqueSaida() {
   }, [itensDisponiveis, searchTerm]);
 
   const selectedItem = itensDisponiveis?.find((i) => i.id === selectedItemId);
+  const isPatrimonial = selectedItem?.controle_patrimonial ?? false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedItemId) {
-      return;
-    }
+    if (!selectedItemId) return;
+    if (!unidadeDestinoId) return;
 
-    if (!unidadeDestinoId) {
-      return;
+    // Validar quantidade para itens sem patrimônio
+    if (selectedItem && !isPatrimonial) {
+      const qtd = parseInt(quantidadeSaida) || 0;
+      if (qtd < 1) {
+        toast.error('Informe uma quantidade válida');
+        return;
+      }
+      if (qtd > (selectedItem.quantidade_total || 0)) {
+        toast.error(`Quantidade máxima disponível: ${selectedItem.quantidade_total}`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -73,6 +86,8 @@ export default function EstoqueSaida() {
         unidadeDestinoId,
         dataSaida: dataSaida.toISOString(),
         observacao: observacao || undefined,
+        localEspecifico: localEspecifico || undefined,
+        quantidadeSaida: isPatrimonial ? undefined : parseInt(quantidadeSaida) || 1,
       });
 
       navigate('/admin/estoque');
@@ -143,7 +158,10 @@ export default function EstoqueSaida() {
                       {itensFiltrados.map((item) => (
                         <div
                           key={item.id}
-                          onClick={() => setSelectedItemId(item.id)}
+                          onClick={() => {
+                            setSelectedItemId(item.id);
+                            setQuantidadeSaida('');
+                          }}
                           className={cn(
                             'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border',
                             selectedItemId === item.id
@@ -157,13 +175,17 @@ export default function EstoqueSaida() {
                           <div className="flex-1">
                             <p className="font-medium">{item.produto?.nome}</p>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {item.numero_patrimonio && (
+                              {item.controle_patrimonial && item.numero_patrimonio ? (
                                 <span className="flex items-center gap-1">
                                   <Hash className="w-3 h-3" />
                                   {item.numero_patrimonio}
                                 </span>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  <Layers className="w-3 h-3" />
+                                  Qtd disponível: {item.quantidade_total}
+                                </span>
                               )}
-                              <span>Qtd: {item.quantidade}</span>
                             </div>
                           </div>
                         </div>
@@ -177,11 +199,39 @@ export default function EstoqueSaida() {
                   <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                     <p className="text-sm text-muted-foreground mb-1">Item selecionado:</p>
                     <p className="font-semibold">{selectedItem.produto?.nome}</p>
-                    {selectedItem.numero_patrimonio && (
+                    {selectedItem.controle_patrimonial && selectedItem.numero_patrimonio && (
                       <p className="text-sm text-muted-foreground">
                         Patrimônio: {selectedItem.numero_patrimonio}
                       </p>
                     )}
+                    {!selectedItem.controle_patrimonial && (
+                      <p className="text-sm text-muted-foreground">
+                        Quantidade disponível: {selectedItem.quantidade_total}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Quantidade a retirar (apenas para itens sem patrimônio) */}
+                {selectedItem && !isPatrimonial && (
+                  <div className="space-y-2">
+                    <Label htmlFor="qtd-saida">Quantidade a Retirar *</Label>
+                    <Input
+                      id="qtd-saida"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={quantidadeSaida}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setQuantidadeSaida(val);
+                      }}
+                      placeholder={`Máximo: ${selectedItem.quantidade_total}`}
+                      className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Disponível: {selectedItem.quantidade_total} unidade(s)
+                    </p>
                   </div>
                 )}
 
@@ -211,6 +261,23 @@ export default function EstoqueSaida() {
                       )}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Local Específico */}
+                <div className="space-y-2">
+                  <Label htmlFor="local-especifico" className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Local Específico
+                  </Label>
+                  <Input
+                    id="local-especifico"
+                    value={localEspecifico}
+                    onChange={(e) => setLocalEspecifico(e.target.value)}
+                    placeholder="Ex: Sala de Vacina, Consultório 2..."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Informe o local detalhado dentro da unidade (opcional)
+                  </p>
                 </div>
 
                 {/* Data de Saída */}
@@ -245,14 +312,14 @@ export default function EstoqueSaida() {
                   </Popover>
                 </div>
 
-                {/* Observação */}
+                {/* Descrição da Saída */}
                 <div className="space-y-2">
-                  <Label htmlFor="observacao">Observação</Label>
+                  <Label htmlFor="observacao">Descrição da Saída</Label>
                   <Textarea
                     id="observacao"
                     value={observacao}
                     onChange={(e) => setObservacao(e.target.value)}
-                    placeholder="Informações adicionais sobre esta saída..."
+                    placeholder="Ex: Enviado para sala de vacina para uso no sistema e-SUS..."
                     rows={3}
                   />
                 </div>

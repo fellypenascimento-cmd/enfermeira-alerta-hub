@@ -130,13 +130,21 @@ export function useCreateEstoqueItem() {
       produto_id: string;
       numero_patrimonio?: string | null;
       quantidade?: number;
+      controle_patrimonial?: boolean;
+      quantidade_total?: number;
       data_entrada: string;
       observacao_entrada?: string | null;
     }) => {
       const { data: item, error } = await supabase
         .from('estoque_itens')
         .insert({
-          ...data,
+          produto_id: data.produto_id,
+          numero_patrimonio: data.numero_patrimonio || null,
+          quantidade: data.quantidade ?? 1,
+          controle_patrimonial: data.controle_patrimonial ?? false,
+          quantidade_total: data.quantidade_total ?? 1,
+          data_entrada: data.data_entrada,
+          observacao_entrada: data.observacao_entrada || null,
           responsavel_entrada_id: user?.id,
           status: 'disponivel' as EstoqueStatus,
         })
@@ -182,29 +190,58 @@ export function useRegistrarSaida() {
       unidadeDestinoId,
       dataSaida,
       observacao,
+      localEspecifico,
+      quantidadeSaida,
     }: {
       itemId: string;
       unidadeDestinoId: string;
       dataSaida: string;
       observacao?: string;
+      localEspecifico?: string;
+      quantidadeSaida?: number;
     }) => {
-      // Buscar item atual para registrar origem
+      // Buscar item atual
       const { data: itemAtual } = await supabase
         .from('estoque_itens')
-        .select('unidade_atual_id')
+        .select('unidade_atual_id, controle_patrimonial, quantidade_total')
         .eq('id', itemId)
         .single();
 
-      // Atualizar status do item
-      const { error: updateError } = await supabase
-        .from('estoque_itens')
-        .update({
-          status: 'em_uso' as EstoqueStatus,
-          unidade_atual_id: unidadeDestinoId,
-        })
-        .eq('id', itemId);
+      if (!itemAtual) throw new Error('Item não encontrado');
 
-      if (updateError) throw updateError;
+      if (itemAtual.controle_patrimonial) {
+        // Item com patrimônio: comportamento atual
+        const { error: updateError } = await supabase
+          .from('estoque_itens')
+          .update({
+            status: 'em_uso' as EstoqueStatus,
+            unidade_atual_id: unidadeDestinoId,
+            local_especifico: localEspecifico || null,
+          })
+          .eq('id', itemId);
+
+        if (updateError) throw updateError;
+      } else {
+        // Item sem patrimônio: subtrair quantidade
+        const qtdSaida = quantidadeSaida || 1;
+        if (qtdSaida > (itemAtual.quantidade_total || 0)) {
+          throw new Error('Quantidade de saída excede o disponível');
+        }
+
+        const novaQtd = (itemAtual.quantidade_total || 0) - qtdSaida;
+        const { error: updateError } = await supabase
+          .from('estoque_itens')
+          .update({
+            quantidade_total: novaQtd,
+            quantidade: novaQtd,
+            status: novaQtd === 0 ? ('em_uso' as EstoqueStatus) : ('disponivel' as EstoqueStatus),
+            unidade_atual_id: unidadeDestinoId,
+            local_especifico: localEspecifico || null,
+          })
+          .eq('id', itemId);
+
+        if (updateError) throw updateError;
+      }
 
       // Registrar movimentação
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
@@ -215,6 +252,7 @@ export function useRegistrarSaida() {
         unidade_destino_id: unidadeDestinoId,
         responsavel_id: user?.id,
         observacao: observacao || 'Saída para unidade',
+        local_especifico: localEspecifico || null,
       });
 
       if (movError) throw movError;
@@ -228,9 +266,89 @@ export function useRegistrarSaida() {
       queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
       toast.success('Saída registrada com sucesso!');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error registering saida:', error);
-      toast.error('Erro ao registrar saída');
+      toast.error(error.message || 'Erro ao registrar saída');
+    },
+  });
+}
+
+// ==================== CONVERTER PARA PATRIMONIAL ====================
+
+export function useConverterParaPatrimonial() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      patrimonios,
+    }: {
+      itemId: string;
+      patrimonios: string[];
+    }) => {
+      // Buscar item original
+      const { data: itemOriginal, error: fetchError } = await supabase
+        .from('estoque_itens')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+
+      if (fetchError || !itemOriginal) throw new Error('Item não encontrado');
+      if (itemOriginal.controle_patrimonial) throw new Error('Item já é patrimonial');
+      if (patrimonios.length > (itemOriginal.quantidade_total || 0)) {
+        throw new Error('Quantidade de patrimônios excede a quantidade disponível');
+      }
+
+      // Criar registros individuais
+      for (const pat of patrimonios) {
+        const { error } = await supabase.from('estoque_itens').insert({
+          produto_id: itemOriginal.produto_id,
+          numero_patrimonio: pat,
+          quantidade: 1,
+          controle_patrimonial: true,
+          quantidade_total: 1,
+          status: itemOriginal.status,
+          unidade_atual_id: itemOriginal.unidade_atual_id,
+          local_especifico: itemOriginal.local_especifico,
+          data_entrada: itemOriginal.data_entrada,
+          responsavel_entrada_id: user?.id,
+          observacao_entrada: `Convertido de lote (item ${itemId})`,
+        });
+        if (error) {
+          if (error.code === '23505') {
+            throw new Error(`Patrimônio "${pat}" já existe no sistema`);
+          }
+          throw error;
+        }
+      }
+
+      // Subtrair do original
+      const novaQtd = (itemOriginal.quantidade_total || 0) - patrimonios.length;
+      if (novaQtd <= 0) {
+        // Remover item original (marcar como baixa com quantidade 0)
+        await supabase
+          .from('estoque_itens')
+          .update({ quantidade_total: 0, quantidade: 0, status: 'baixa' })
+          .eq('id', itemId);
+      } else {
+        await supabase
+          .from('estoque_itens')
+          .update({ quantidade_total: novaQtd, quantidade: novaQtd })
+          .eq('id', itemId);
+      }
+
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+      toast.success('Patrimônios adicionados com sucesso!');
+    },
+    onError: (error: any) => {
+      console.error('Error converting to patrimonial:', error);
+      toast.error(error.message || 'Erro ao adicionar patrimônios');
     },
   });
 }
@@ -287,16 +405,16 @@ export function useEstoqueStats() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('estoque_itens')
-        .select('status, quantidade');
+        .select('status, quantidade, quantidade_total, controle_patrimonial');
 
       if (error) throw error;
 
       const stats = {
-        total: data.length,
-        totalQuantidade: data.reduce((acc, item) => acc + (item.quantidade || 1), 0),
-        disponivel: data.filter((i) => i.status === 'disponivel').length,
-        em_uso: data.filter((i) => i.status === 'em_uso').length,
-        baixa: data.filter((i) => i.status === 'baixa').length,
+        total: data.reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
+        totalQuantidade: data.reduce((acc, item) => acc + (item.quantidade_total || 1), 0),
+        disponivel: data.filter((i) => i.status === 'disponivel').reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
+        em_uso: data.filter((i) => i.status === 'em_uso').reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
+        baixa: data.filter((i) => i.status === 'baixa').reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
       };
 
       return stats;
@@ -332,37 +450,57 @@ export function useRegistrarBaixa() {
       itemId,
       dataBaixa,
       motivo,
+      quantidadeBaixa,
     }: {
       itemId: string;
       dataBaixa: string;
       motivo?: string;
+      quantidadeBaixa?: number;
     }) => {
-      // Buscar item atual para registrar unidade anterior e validar status
       const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('unidade_atual_id, status')
+        .select('unidade_atual_id, status, controle_patrimonial, quantidade_total')
         .eq('id', itemId)
         .single();
 
       if (fetchError) throw fetchError;
 
-      // Validar: não permitir baixa duplicada
       if (itemAtual?.status === 'baixa') {
         throw new Error('Este equipamento já foi baixado.');
       }
 
-      // Atualizar status do item para "baixa" e desvincular da unidade
-      const { error: updateError } = await supabase
-        .from('estoque_itens')
-        .update({
-          status: 'baixa' as EstoqueStatus,
-          unidade_atual_id: null, // Desvincula da unidade
-        })
-        .eq('id', itemId);
+      if (itemAtual?.controle_patrimonial) {
+        // Patrimonial: baixa individual (comportamento atual)
+        const { error: updateError } = await supabase
+          .from('estoque_itens')
+          .update({
+            status: 'baixa' as EstoqueStatus,
+            unidade_atual_id: null,
+          })
+          .eq('id', itemId);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
+      } else {
+        // Não patrimonial: baixa por quantidade
+        const qtdBaixa = quantidadeBaixa || (itemAtual?.quantidade_total || 1);
+        if (qtdBaixa > (itemAtual?.quantidade_total || 0)) {
+          throw new Error('Quantidade de baixa excede o disponível');
+        }
+        const novaQtd = (itemAtual?.quantidade_total || 0) - qtdBaixa;
+        const { error: updateError } = await supabase
+          .from('estoque_itens')
+          .update({
+            quantidade_total: novaQtd,
+            quantidade: novaQtd,
+            status: novaQtd === 0 ? ('baixa' as EstoqueStatus) : ('disponivel' as EstoqueStatus),
+            unidade_atual_id: novaQtd === 0 ? null : itemAtual?.unidade_atual_id,
+          })
+          .eq('id', itemId);
 
-      // Registrar movimentação de baixa no histórico
+        if (updateError) throw updateError;
+      }
+
+      // Registrar movimentação
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
         item_id: itemId,
         tipo: 'baixa' as MovimentacaoTipo,
@@ -410,7 +548,6 @@ export function useEstoqueItensParaBaixa(searchTerm?: string) {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Filtrar no cliente se houver termo de busca
       let filteredData = data as EstoqueItemWithRelations[];
       
       if (searchTerm && searchTerm.trim()) {

@@ -156,17 +156,21 @@ export default function EstoqueEntrada() {
             produto_id: finalProdutoId,
             numero_patrimonio: patrimonio.value.trim(),
             quantidade: 1,
+            controle_patrimonial: true,
+            quantidade_total: 1,
             data_entrada: dataEntrada.toISOString(),
             observacao_entrada: observacao || null,
           });
         }
         toast.success(`${patrimonios.length} itens registrados com sucesso!`);
       } else {
-        // Criar item único com quantidade
+        // Criar item único com quantidade (sem patrimônio)
         await createEstoqueItem.mutateAsync({
           produto_id: finalProdutoId,
           numero_patrimonio: null,
           quantidade: qtdNum,
+          controle_patrimonial: false,
+          quantidade_total: qtdNum,
           data_entrada: dataEntrada.toISOString(),
           observacao_entrada: observacao || null,
         });

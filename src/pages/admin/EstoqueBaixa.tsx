@@ -49,6 +49,7 @@ export default function EstoqueBaixa() {
   const [selectedItem, setSelectedItem] = useState<EstoqueItemWithRelations | null>(null);
   const [dataBaixa, setDataBaixa] = useState<Date | undefined>(new Date());
   const [motivo, setMotivo] = useState('');
+  const [quantidadeBaixa, setQuantidadeBaixa] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const { data: itens, isLoading } = useEstoqueItensParaBaixa(searchTerm);
@@ -56,7 +57,10 @@ export default function EstoqueBaixa() {
 
   const handleSelectItem = (item: EstoqueItemWithRelations) => {
     setSelectedItem(item);
+    setQuantidadeBaixa('');
   };
+
+  const isPatrimonial = selectedItem?.controle_patrimonial ?? false;
 
   const handleConfirmBaixa = async () => {
     if (!selectedItem || !dataBaixa) {
@@ -64,11 +68,25 @@ export default function EstoqueBaixa() {
       return;
     }
 
+    // Validar quantidade para itens sem patrimônio
+    if (!isPatrimonial) {
+      const qtd = parseInt(quantidadeBaixa) || 0;
+      if (qtd < 1) {
+        toast.error('Informe uma quantidade válida');
+        return;
+      }
+      if (qtd > (selectedItem.quantidade_total || 0)) {
+        toast.error(`Quantidade máxima: ${selectedItem.quantidade_total}`);
+        return;
+      }
+    }
+
     try {
       await registrarBaixa.mutateAsync({
         itemId: selectedItem.id,
         dataBaixa: dataBaixa.toISOString(),
         motivo: motivo.trim() || undefined,
+        quantidadeBaixa: isPatrimonial ? undefined : parseInt(quantidadeBaixa) || undefined,
       });
       navigate('/admin/estoque');
     } catch (error) {
@@ -170,11 +188,13 @@ export default function EstoqueBaixa() {
                                   {item.produto?.nome || 'Produto'}
                                 </p>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  {item.numero_patrimonio && (
+                                  {item.controle_patrimonial && item.numero_patrimonio ? (
                                     <span className="flex items-center gap-1">
                                       <Hash className="w-3 h-3" />
                                       {item.numero_patrimonio}
                                     </span>
+                                  ) : (
+                                    <span>Qtd: {item.quantidade_total}</span>
                                   )}
                                 </div>
                               </div>
@@ -274,6 +294,29 @@ export default function EstoqueBaixa() {
                       </PopoverContent>
                     </Popover>
                   </div>
+
+                  {/* Quantidade a dar baixa (apenas para itens sem patrimônio) */}
+                  {selectedItem && !selectedItem.controle_patrimonial && (
+                    <div className="space-y-2">
+                      <Label htmlFor="qtd-baixa">Quantidade a dar Baixa *</Label>
+                      <Input
+                        id="qtd-baixa"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={quantidadeBaixa}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          setQuantidadeBaixa(val);
+                        }}
+                        placeholder={`Máximo: ${selectedItem.quantidade_total}`}
+                        className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Disponível: {selectedItem.quantidade_total} unidade(s)
+                      </p>
+                    </div>
+                  )}
 
                   {/* Motivo */}
                   <div className="space-y-2">

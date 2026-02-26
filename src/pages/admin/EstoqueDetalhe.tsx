@@ -1,12 +1,24 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { useEstoqueItemById, useEstoqueMovimentacoes } from '@/hooks/useEstoque';
+import { useEstoqueItemById, useEstoqueMovimentacoes, useConverterParaPatrimonial, useVerificarPatrimonio } from '@/hooks/useEstoque';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { FadeIn } from '@/components/animations';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Package,
@@ -19,9 +31,15 @@ import {
   ArrowUpFromLine,
   FileText,
   Clock,
+  Layers,
+  MapPin,
+  Plus,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const statusConfig = {
   disponivel: { label: 'Disponível', color: 'bg-green-100 text-green-700 border-green-300' },
@@ -36,11 +54,92 @@ const tipoMovimentacaoConfig = {
   baixa: { label: 'Baixa', icon: FileText, color: 'text-red-600' },
 };
 
+interface PatrimonioInput {
+  value: string;
+  isValid: boolean | null;
+  isChecking: boolean;
+}
+
 export default function EstoqueDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: item, isLoading: loadingItem } = useEstoqueItemById(id || '');
   const { data: movimentacoes, isLoading: loadingMov } = useEstoqueMovimentacoes(id);
+  const converterParaPatrimonial = useConverterParaPatrimonial();
+  const verificarPatrimonio = useVerificarPatrimonio();
+
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [patrimonioInputs, setPatrimonioInputs] = React.useState<PatrimonioInput[]>([{ value: '', isValid: null, isChecking: false }]);
+  const [isConverting, setIsConverting] = React.useState(false);
+
+  const addPatrimonioField = () => {
+    if (item && patrimonioInputs.length < (item.quantidade_total || 0)) {
+      setPatrimonioInputs([...patrimonioInputs, { value: '', isValid: null, isChecking: false }]);
+    }
+  };
+
+  const removePatrimonioField = (index: number) => {
+    if (patrimonioInputs.length > 1) {
+      setPatrimonioInputs(patrimonioInputs.filter((_, i) => i !== index));
+    }
+  };
+
+  const handlePatrimonioChange = async (index: number, value: string) => {
+    const newInputs = [...patrimonioInputs];
+    newInputs[index] = { value, isValid: null, isChecking: true };
+    setPatrimonioInputs(newInputs);
+
+    if (value.trim()) {
+      const duplicataLocal = patrimonioInputs.some(
+        (p, i) => i !== index && p.value.trim() === value.trim()
+      );
+
+      if (duplicataLocal) {
+        newInputs[index] = { value, isValid: false, isChecking: false };
+        setPatrimonioInputs([...newInputs]);
+        return;
+      }
+
+      try {
+        const existing = await verificarPatrimonio.mutateAsync(value.trim());
+        newInputs[index] = { value, isValid: !existing, isChecking: false };
+        setPatrimonioInputs([...newInputs]);
+      } catch {
+        newInputs[index] = { value, isValid: null, isChecking: false };
+        setPatrimonioInputs([...newInputs]);
+      }
+    } else {
+      newInputs[index] = { value, isValid: null, isChecking: false };
+      setPatrimonioInputs([...newInputs]);
+    }
+  };
+
+  const handleConverter = async () => {
+    const patrimonios = patrimonioInputs.filter(p => p.value.trim()).map(p => p.value.trim());
+    if (patrimonios.length === 0) {
+      toast.error('Informe ao menos um número de patrimônio');
+      return;
+    }
+    const invalidos = patrimonioInputs.filter(p => p.value.trim() && p.isValid !== true);
+    if (invalidos.length > 0) {
+      toast.error('Corrija os patrimônios inválidos antes de continuar');
+      return;
+    }
+
+    setIsConverting(true);
+    try {
+      await converterParaPatrimonial.mutateAsync({
+        itemId: id!,
+        patrimonios,
+      });
+      setDialogOpen(false);
+      setPatrimonioInputs([{ value: '', isValid: null, isChecking: false }]);
+    } catch {
+      // Error handled in hook
+    } finally {
+      setIsConverting(false);
+    }
+  };
 
   if (loadingItem) {
     return (
@@ -74,6 +173,8 @@ export default function EstoqueDetalhe() {
   }
 
   const config = statusConfig[item.status as keyof typeof statusConfig];
+  const isPatrimonial = item.controle_patrimonial;
+  const canAddPatrimonio = !isPatrimonial && (item.quantidade_total || 0) > 0 && item.status !== 'baixa';
 
   return (
     <Layout>
@@ -96,14 +197,78 @@ export default function EstoqueDetalhe() {
                   </h1>
                   <Badge className={config?.color}>{config?.label}</Badge>
                 </div>
-                {item.numero_patrimonio && (
+                {isPatrimonial && item.numero_patrimonio && (
                   <p className="text-muted-foreground flex items-center gap-1">
                     <Hash className="w-4 h-4" />
                     Patrimônio: {item.numero_patrimonio}
                   </p>
                 )}
+                {!isPatrimonial && (
+                  <p className="text-muted-foreground flex items-center gap-1">
+                    <Layers className="w-4 h-4" />
+                    Quantidade disponível: {item.quantidade_total}
+                  </p>
+                )}
               </div>
             </div>
+            {canAddPatrimonio && (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Patrimônio
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Patrimônio</DialogTitle>
+                    <DialogDescription>
+                      Converta unidades deste lote em itens individuais com número de patrimônio.
+                      Disponível: {item.quantidade_total} unidade(s).
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {patrimonioInputs.map((input, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-muted-foreground" />
+                        <Input
+                          value={input.value}
+                          onChange={(e) => handlePatrimonioChange(index, e.target.value)}
+                          placeholder={`Patrimônio ${index + 1}`}
+                          className={cn(
+                            input.isValid === false && 'border-destructive',
+                            input.isValid === true && 'border-green-500'
+                          )}
+                        />
+                        <div className="w-6 flex-shrink-0">
+                          {input.isChecking && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                          {input.isValid === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                          {input.isValid === false && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                        </div>
+                        {patrimonioInputs.length > 1 && (
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePatrimonioField(index)}>
+                            ×
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {patrimonioInputs.length < (item.quantidade_total || 0) && (
+                    <Button type="button" variant="outline" size="sm" onClick={addPatrimonioField}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      Adicionar mais
+                    </Button>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+                    <Button onClick={handleConverter} disabled={isConverting}>
+                      {isConverting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Converter
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </FadeIn>
 
@@ -128,13 +293,26 @@ export default function EstoqueDetalhe() {
 
                 <Separator />
 
-                {item.numero_patrimonio && (
+                {isPatrimonial && item.numero_patrimonio && (
                   <>
                     <div className="flex items-start gap-3">
                       <Hash className="w-5 h-5 text-muted-foreground mt-0.5" />
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Patrimônio</p>
                         <p className="font-medium font-mono">{item.numero_patrimonio}</p>
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
+                {!isPatrimonial && (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <Layers className="w-5 h-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Quantidade Total</p>
+                        <p className="font-medium">{item.quantidade_total} unidade(s)</p>
                       </div>
                     </div>
                     <Separator />
@@ -150,6 +328,19 @@ export default function EstoqueDetalhe() {
                     </p>
                   </div>
                 </div>
+
+                {item.local_especifico && (
+                  <>
+                    <Separator />
+                    <div className="flex items-start gap-3">
+                      <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Local Específico</p>
+                        <p className="font-medium">{item.local_especifico}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <Separator />
 
@@ -216,7 +407,7 @@ export default function EstoqueDetalhe() {
                   <div className="relative">
                     <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
                     <div className="space-y-6">
-                      {movimentacoes.map((mov, index) => {
+                      {movimentacoes.map((mov) => {
                         const tipoConfig = tipoMovimentacaoConfig[mov.tipo as keyof typeof tipoMovimentacaoConfig];
                         const TipoIcon = tipoConfig?.icon || FileText;
                         
@@ -248,6 +439,13 @@ export default function EstoqueDetalhe() {
                                     <span className="font-medium">{mov.unidade_origem.nome}</span>
                                   </p>
                                 )}
+                                {mov.local_especifico && (
+                                  <p className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3 text-muted-foreground" />
+                                    <span className="text-muted-foreground">Local:</span>{' '}
+                                    <span className="font-medium">{mov.local_especifico}</span>
+                                  </p>
+                                )}
                                 <p>
                                   <span className="text-muted-foreground">Responsável:</span>{' '}
                                   <span className="font-medium">
@@ -255,9 +453,10 @@ export default function EstoqueDetalhe() {
                                   </span>
                                 </p>
                                 {mov.observacao && (
-                                  <p className="text-muted-foreground italic mt-2">
-                                    "{mov.observacao}"
-                                  </p>
+                                  <div className="mt-2 p-2 rounded bg-muted/50 border-l-2 border-primary/30">
+                                    <p className="text-xs text-muted-foreground mb-1">Descrição da movimentação:</p>
+                                    <p className="text-sm">{mov.observacao}</p>
+                                  </div>
                                 )}
                               </div>
                             </div>

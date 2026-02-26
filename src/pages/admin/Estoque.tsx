@@ -18,6 +18,8 @@ import {
   FileText,
   Hash,
   XCircle,
+  Layers,
+  MapPin,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -179,6 +181,7 @@ export default function Estoque() {
                     <div className="space-y-3">
                       {itens.map((item) => {
                         const config = statusConfig[item.status as keyof typeof statusConfig];
+                        const isPatrimonial = item.controle_patrimonial;
                         return (
                           <Link
                             key={item.id}
@@ -194,11 +197,17 @@ export default function Estoque() {
                                   <p className="font-medium">
                                     {item.produto?.nome || 'Produto não identificado'}
                                   </p>
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    {item.numero_patrimonio && (
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                    {isPatrimonial && item.numero_patrimonio && (
                                       <span className="flex items-center gap-1">
                                         <Hash className="w-3 h-3" />
                                         {item.numero_patrimonio}
+                                      </span>
+                                    )}
+                                    {!isPatrimonial && (
+                                      <span className="flex items-center gap-1">
+                                        <Layers className="w-3 h-3" />
+                                        Quantidade: {item.quantidade_total}
                                       </span>
                                     )}
                                     {item.unidade_atual && (
@@ -207,11 +216,17 @@ export default function Estoque() {
                                         {item.unidade_atual.nome}
                                       </span>
                                     )}
+                                    {item.local_especifico && (
+                                      <span className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        {item.local_especifico}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                               <div className="flex items-center gap-3">
-                                <span className="text-sm text-muted-foreground">
+                                <span className="text-sm text-muted-foreground hidden sm:inline">
                                   {format(new Date(item.data_entrada), 'dd/MM/yyyy', { locale: ptBR })}
                                 </span>
                                 <Badge className={config?.color}>
