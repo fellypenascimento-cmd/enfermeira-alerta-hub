@@ -147,39 +147,48 @@ export type Database = {
       }
       estoque_itens: {
         Row: {
+          controle_patrimonial: boolean
           created_at: string | null
           data_entrada: string
           id: string
+          local_especifico: string | null
           numero_patrimonio: string | null
           observacao_entrada: string | null
           produto_id: string
           quantidade: number | null
+          quantidade_total: number
           responsavel_entrada_id: string
           status: string | null
           unidade_atual_id: string | null
           updated_at: string | null
         }
         Insert: {
+          controle_patrimonial?: boolean
           created_at?: string | null
           data_entrada?: string
           id?: string
+          local_especifico?: string | null
           numero_patrimonio?: string | null
           observacao_entrada?: string | null
           produto_id: string
           quantidade?: number | null
+          quantidade_total?: number
           responsavel_entrada_id: string
           status?: string | null
           unidade_atual_id?: string | null
           updated_at?: string | null
         }
         Update: {
+          controle_patrimonial?: boolean
           created_at?: string | null
           data_entrada?: string
           id?: string
+          local_especifico?: string | null
           numero_patrimonio?: string | null
           observacao_entrada?: string | null
           produto_id?: string
           quantidade?: number | null
+          quantidade_total?: number
           responsavel_entrada_id?: string
           status?: string | null
           unidade_atual_id?: string | null
@@ -215,6 +224,7 @@ export type Database = {
           data_movimentacao: string
           id: string
           item_id: string
+          local_especifico: string | null
           observacao: string | null
           responsavel_id: string
           tipo: string
@@ -226,6 +236,7 @@ export type Database = {
           data_movimentacao?: string
           id?: string
           item_id: string
+          local_especifico?: string | null
           observacao?: string | null
           responsavel_id: string
           tipo: string
@@ -237,6 +248,7 @@ export type Database = {
           data_movimentacao?: string
           id?: string
           item_id?: string
+          local_especifico?: string | null
           observacao?: string | null
           responsavel_id?: string
           tipo?: string

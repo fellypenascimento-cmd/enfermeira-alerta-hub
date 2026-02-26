@@ -107,10 +107,12 @@ export default function EstoqueRelatorios() {
       doc.rect(10, y - 5, pageWidth - 20, 8, 'F');
       doc.setTextColor(255, 255, 255);
       doc.text('Produto', 12, y);
-      doc.text('Patrimônio', 60, y);
+      doc.text('Patrimônio', 55, y);
+      doc.text('Qtd', 88, y);
       doc.text('Status', 100, y);
-      doc.text('Unidade', 130, y);
-      doc.text('Data Entrada', 170, y);
+      doc.text('Unidade', 125, y);
+      doc.text('Local', 155, y);
+      doc.text('Data', 180, y);
       
       // Dados
       y += 10;
@@ -123,17 +125,18 @@ export default function EstoqueRelatorios() {
           y = 20;
         }
         
-        // Zebra striping
         if (index % 2 === 0) {
           doc.setFillColor(245, 245, 245);
           doc.rect(10, y - 4, pageWidth - 20, 7, 'F');
         }
         
-        doc.text((item.produto?.nome || 'N/A').substring(0, 25), 12, y);
-        doc.text(item.numero_patrimonio || '-', 60, y);
+        doc.text((item.produto?.nome || 'N/A').substring(0, 22), 12, y);
+        doc.text(item.numero_patrimonio || '-', 55, y);
+        doc.text(String(item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 88, y);
         doc.text(statusConfig[item.status as keyof typeof statusConfig]?.label || item.status || '-', 100, y);
-        doc.text((item.unidade_atual?.nome || '-').substring(0, 20), 130, y);
-        doc.text(format(new Date(item.data_entrada), 'dd/MM/yyyy'), 170, y);
+        doc.text((item.unidade_atual?.nome || '-').substring(0, 15), 125, y);
+        doc.text((item.local_especifico || '-').substring(0, 12), 155, y);
+        doc.text(format(new Date(item.data_entrada), 'dd/MM/yy'), 180, y);
         
         y += 7;
       });
@@ -156,8 +159,10 @@ export default function EstoqueRelatorios() {
       const data = filteredItens.map((item) => ({
         'Produto': item.produto?.nome || 'N/A',
         'Patrimônio': item.numero_patrimonio || '-',
+        'Qtd Total': item.controle_patrimonial ? 1 : (item.quantidade_total || 1),
         'Status': statusConfig[item.status as keyof typeof statusConfig]?.label || item.status || '-',
         'Unidade Atual': item.unidade_atual?.nome || '-',
+        'Local Específico': item.local_especifico || '-',
         'Data Entrada': format(new Date(item.data_entrada), 'dd/MM/yyyy'),
         'Quantidade': item.quantidade || 1,
         'Observação': item.observacao_entrada || '-',
@@ -348,8 +353,10 @@ export default function EstoqueRelatorios() {
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-3 font-medium">Produto</th>
                         <th className="text-left p-3 font-medium">Patrimônio</th>
+                        <th className="text-left p-3 font-medium">Qtd</th>
                         <th className="text-left p-3 font-medium">Status</th>
                         <th className="text-left p-3 font-medium">Unidade</th>
+                        <th className="text-left p-3 font-medium">Local</th>
                         <th className="text-left p-3 font-medium">Data Entrada</th>
                       </tr>
                     </thead>
@@ -375,9 +382,13 @@ export default function EstoqueRelatorios() {
                               )}
                             </td>
                             <td className="p-3">
+                              {item.controle_patrimonial ? 1 : (item.quantidade_total || 1)}
+                            </td>
+                            <td className="p-3">
                               <Badge className={config?.color}>{config?.label}</Badge>
                             </td>
                             <td className="p-3">{item.unidade_atual?.nome || '-'}</td>
+                            <td className="p-3">{item.local_especifico || '-'}</td>
                             <td className="p-3">
                               {format(new Date(item.data_entrada), 'dd/MM/yyyy', { locale: ptBR })}
                             </td>

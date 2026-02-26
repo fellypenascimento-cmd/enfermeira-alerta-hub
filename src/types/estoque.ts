@@ -16,6 +16,9 @@ export interface EstoqueItem {
   produto_id: string;
   numero_patrimonio: string | null;
   quantidade: number;
+  controle_patrimonial: boolean;
+  quantidade_total: number;
+  local_especifico: string | null;
   status: EstoqueStatus;
   unidade_atual_id: string | null;
   data_entrada: string;
@@ -34,6 +37,7 @@ export interface EstoqueMovimentacao {
   unidade_destino_id: string | null;
   responsavel_id: string;
   observacao: string | null;
+  local_especifico: string | null;
   created_at: string;
 }
 
