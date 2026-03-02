@@ -31,9 +31,21 @@ import { ptBR } from 'date-fns/locale';
 
 export default function EstoqueSaida() {
   const navigate = useNavigate();
-  const { data: itensDisponiveis, isLoading: loadingItens } = useEstoqueItens({ status: 'disponivel' });
-  const { data: unidades, isLoading: loadingUnidades } = useUnidades();
+  const { data: itensDisponiveis, isLoading: loadingItens, error: errorItens } = useEstoqueItens({ status: 'disponivel' });
+  const { data: unidades, isLoading: loadingUnidades, error: errorUnidades } = useUnidades();
   const registrarSaida = useRegistrarSaida();
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[EstoqueSaida] Rendered', { 
+      itensDisponiveis: itensDisponiveis?.length, 
+      loadingItens, 
+      errorItens,
+      unidades: unidades?.length, 
+      loadingUnidades,
+      errorUnidades 
+    });
+  }, [itensDisponiveis, loadingItens, errorItens, unidades, loadingUnidades, errorUnidades]);
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedItemId, setSelectedItemId] = React.useState('');
