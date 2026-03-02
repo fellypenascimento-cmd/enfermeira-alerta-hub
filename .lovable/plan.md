@@ -1,42 +1,24 @@
 
+# Reverter Teste de Baixa - FILTRO DE LINHA 5
 
-# Corrigir Erro de Constraint na Saída de Estoque
+## O que será feito
 
-## Problema Identificado
+Restaurar o item "FILTRO DE LINHA 5" (id: `9382a8b7-...`) ao seu estado original antes do teste de baixa:
 
-A tabela `estoque_itens` possui um CHECK constraint antigo:
-```
-estoque_itens_quantidade_check: CHECK (quantidade > 0)
-```
+- `status`: de `baixa` para `disponivel`
+- `quantidade`: de `0` para `2`
+- `quantidade_total`: de `0` para `2`
 
-Quando um item sem patrimônio tem toda a quantidade retirada (ex: 1 unidade disponível, saída de 1), o código tenta definir `quantidade: 0`, o que viola essa constraint.
+Nenhuma movimentacao de baixa foi registrada na tabela `estoque_movimentacoes`, então apenas o item precisa ser atualizado.
 
-## Solução
+## Detalhes Tecnicos
 
-Duas correções necessárias:
+Uma unica operacao UPDATE na tabela `estoque_itens`:
 
-### 1. Migração no banco de dados
-Substituir o CHECK constraint para permitir `quantidade >= 0`:
 ```sql
-ALTER TABLE public.estoque_itens DROP CONSTRAINT IF EXISTS estoque_itens_quantidade_check;
-ALTER TABLE public.estoque_itens ADD CONSTRAINT estoque_itens_quantidade_check CHECK (quantidade >= 0);
+UPDATE estoque_itens
+SET status = 'disponivel', quantidade = 2, quantidade_total = 2
+WHERE id = '9382a8b7-734c-4ca7-998d-6e797c5ea855';
 ```
 
-### 2. Correção no hook `useRegistrarSaida` (linha 231-241)
-Atualmente o código define `quantidade: novaQtd` onde `novaQtd` pode ser 0. Mesmo com a correção do constraint, a lógica deve ser mais defensiva:
-- Quando `novaQtd === 0` e o item é sem patrimônio, definir `quantidade: 0` e `status: 'em_uso'`
-- O campo `quantidade_total` já é validado pelo trigger (permite >= 0)
-
-### 3. Correção no hook `useRegistrarBaixa` (linha 489-498)
-Mesmo problema: define `quantidade: novaQtd` que pode ser 0. Aplicar a mesma correção.
-
-## Arquivos Afetados
-
-- Nova migração SQL (corrigir constraint `quantidade >= 0`)
-- `src/hooks/useEstoque.ts` - funções `useRegistrarSaida` e `useRegistrarBaixa`
-
-## Sequência
-
-1. Executar migração para corrigir o CHECK constraint
-2. Atualizar o código dos hooks para consistência
-
+Nenhum arquivo de codigo sera alterado.
