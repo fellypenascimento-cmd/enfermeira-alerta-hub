@@ -1,51 +1,36 @@
 
 
-# Ajustes Visuais e Funcionais no Módulo de Estoque
+# Melhorias na Visualização de Lotações e Histórico
 
-## Resumo
+## Alterações
 
-Quatro alterações principais: simplificar os cards na listagem, mover detalhes para o histórico, adicionar tipo "liberação" de movimentação, e criar funcionalidade "Liberar da Unidade".
+### 1. Seção "Unidades Atuais" (`EstoqueDetalhe.tsx`)
 
----
+Substituir o bloco estático "Localização Atual" (que mostra apenas `unidade_atual`) por uma seção dinâmica que lista todas as lotações ativas vindas de `estoque_lotacoes`.
 
-## 1. Simplificar Card na Listagem (`Estoque.tsx`)
+Para itens não patrimoniais:
+```
+Unidades Atuais
+  ESF Primavera — 2 un. (Sala de Vacina)
+  ESF Jardim Oriente — 1 un.
+  Estoque Geral — 7 un.
+```
 
-No card de cada item, remover unidade, local específico e patrimônio. Exibir apenas:
-- Nome do equipamento
-- Quantidade disponível (para itens sem patrimônio) ou número de patrimônio (para patrimoniais)
+Para itens patrimoniais, manter o comportamento atual (uma única unidade).
 
-Remover os ícones/textos de `Building2`, `MapPin` e `local_especifico` do card da listagem.
+A quantidade "Estoque Geral" será calculada como: `quantidade_total - soma das lotações`.
 
-## 2. Botão "Ver Histórico" no Card
+### 2. Histórico Expandível com Quantidade
 
-Adicionar um botão "Ver Histórico" no card que leva à página de detalhe (`/admin/estoque/:id`), que já possui o histórico completo com unidade, local, data, tipo e descrição da movimentação.
+Cada card de movimentação no histórico passará a ser **expandível** (clicável). No estado colapsado, mostra tipo, data e quantidade. Ao expandir, mostra todos os detalhes (origem, destino, local, responsável, descrição).
 
-O link já existe (o card inteiro é clicável), mas adicionaremos um botão explícito para maior clareza.
+Usar o componente `Collapsible` já existente no projeto.
 
-## 3. Nova Funcionalidade: "Liberar Equipamento"
+A quantidade movimentada será exibida de forma proeminente no cabeçalho do card (ex: "Saída — 2 un.").
 
-### Tipo de movimentação
-Adicionar `'liberacao'` ao tipo de movimentação no TypeScript (`MovimentacaoTipo`).
+### 3. Hook `useRegistrarSaida` — sincronizar lotações
 
-### Hook `useRegistrarLiberacao` (`useEstoque.ts`)
-Nova mutation que:
-- Remove `unidade_atual_id` (seta como `null`)
-- Remove `local_especifico` (seta como `null`)
-- Mantém status `disponivel`
-- Registra movimentação do tipo `liberacao`
-- Valida: não permite liberar item que já está sem unidade
-
-### UI na página de detalhe (`EstoqueDetalhe.tsx`)
-- Adicionar botão "Liberar da Unidade" visível quando o item tem `unidade_atual_id` e status diferente de `baixa`
-- Dialog de confirmação antes de executar
-- Após liberação, atualizar dados na tela
-
-### Config visual do tipo
-Adicionar `liberacao` ao `tipoMovimentacaoConfig` no detalhe com label "Liberação" e cor apropriada.
-
-## 4. Remover Console Logs de Debug (`EstoqueSaida.tsx`)
-
-Remover o `useEffect` com `console.log` de debug (linhas 39-48).
+Atualmente o `useRegistrarSaida` não cria/atualiza registros em `estoque_lotacoes`. Adicionar lógica de upsert na lotação de destino ao registrar saída, e registrar `quantidade_movimentada` na movimentação.
 
 ---
 
@@ -53,11 +38,8 @@ Remover o `useEffect` com `console.log` de debug (linhas 39-48).
 
 | Arquivo | Alteração |
 |---|---|
-| `src/types/estoque.ts` | Adicionar `'liberacao'` ao `MovimentacaoTipo` |
-| `src/hooks/useEstoque.ts` | Novo hook `useRegistrarLiberacao` + remover logs |
-| `src/pages/admin/Estoque.tsx` | Simplificar card (remover unidade/local) |
-| `src/pages/admin/EstoqueDetalhe.tsx` | Botão "Liberar da Unidade" + config `liberacao` |
-| `src/pages/admin/EstoqueSaida.tsx` | Remover console.log de debug |
+| `src/pages/admin/EstoqueDetalhe.tsx` | Seção "Unidades Atuais" + histórico expandível |
+| `src/hooks/useEstoque.ts` | `useRegistrarSaida` sincroniza `estoque_lotacoes` e grava `quantidade_movimentada` |
 
-Nenhuma alteração de banco de dados necessária — o campo `tipo` em `estoque_movimentacoes` é `text`, então aceita `'liberacao'` sem migração.
+Nenhuma migração de banco necessária.
 
