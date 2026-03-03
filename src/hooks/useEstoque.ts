@@ -220,7 +220,7 @@ export function useRegistrarSaida() {
       } else {
         const qtdSaida = quantidadeSaida || 1;
         if (qtdSaida > (itemAtual.quantidade_total || 0)) {
-          throw new Error('Quantidade de saída excede o disponível');
+          throw new Error('Quantidade de saída excede o disponível no estoque geral');
         }
 
         const novaQtd = (itemAtual.quantidade_total || 0) - qtdSaida;
@@ -236,6 +236,28 @@ export function useRegistrarSaida() {
           .eq('id', itemId);
 
         if (updateError) throw updateError;
+
+        // Sync estoque_lotacoes: upsert allocation at destination unit
+        const { data: lotExistente } = await supabase
+          .from('estoque_lotacoes')
+          .select('id, quantidade')
+          .eq('item_id', itemId)
+          .eq('unidade_id', unidadeDestinoId)
+          .maybeSingle();
+
+        if (lotExistente) {
+          await supabase.from('estoque_lotacoes').update({
+            quantidade: lotExistente.quantidade + qtdSaida,
+            ...(localEspecifico ? { local_especifico: localEspecifico } : {}),
+          }).eq('id', lotExistente.id);
+        } else {
+          await supabase.from('estoque_lotacoes').insert({
+            item_id: itemId,
+            unidade_id: unidadeDestinoId,
+            quantidade: qtdSaida,
+            local_especifico: localEspecifico || null,
+          });
+        }
       }
 
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
@@ -247,6 +269,7 @@ export function useRegistrarSaida() {
         responsavel_id: user?.id,
         observacao: observacao || 'Saída para unidade',
         local_especifico: localEspecifico || null,
+        quantidade_movimentada: itemAtual.controle_patrimonial ? 1 : (quantidadeSaida || 1),
       });
 
       if (movError) throw movError;
@@ -257,6 +280,7 @@ export function useRegistrarSaida() {
       queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-lotacoes'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
       toast.success('Saída registrada com sucesso!');
     },
@@ -660,9 +684,26 @@ export function useRegistrarLiberacao() {
           });
         }
       }
-      // If estoque_geral, quantity goes back to general stock (no lotação record needed)
+      // If estoque_geral, quantity goes back to general stock
+      if (destino === 'estoque_geral') {
+        // Increment quantidade_total (estoque geral) since items are returning
+        const { data: currentItem } = await supabase
+          .from('estoque_itens')
+          .select('quantidade_total')
+          .eq('id', itemId)
+          .single();
 
-      // 3. Recalculate totals from remaining lotações
+        if (currentItem) {
+          const newTotal = (currentItem.quantidade_total || 0) + qtdLiberar;
+          await supabase.from('estoque_itens').update({
+            quantidade_total: newTotal,
+            quantidade: newTotal,
+            status: 'disponivel',
+          }).eq('id', itemId);
+        }
+      }
+
+      // 3. Recalculate status from remaining lotações
       const { data: allLotacoes } = await supabase
         .from('estoque_lotacoes')
         .select('quantidade')
@@ -672,7 +713,7 @@ export function useRegistrarLiberacao() {
       const totalLotado = (allLotacoes || []).reduce((sum, l) => sum + l.quantidade, 0);
 
       // Update estoque_itens status based on remaining lotações
-      if (totalLotado === 0) {
+      if (totalLotado === 0 && destino !== 'estoque_geral') {
         await supabase.from('estoque_itens').update({
           unidade_atual_id: null,
           local_especifico: null,
