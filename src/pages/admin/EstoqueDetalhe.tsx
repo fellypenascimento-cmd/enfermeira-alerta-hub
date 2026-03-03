@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { useEstoqueItemById, useEstoqueMovimentacoes, useConverterParaPatrimonial, useVerificarPatrimonio, useRegistrarLiberacao } from '@/hooks/useEstoque';
+import { useEstoqueItemById, useEstoqueMovimentacoes, useConverterParaPatrimonial, useVerificarPatrimonio, useRegistrarLiberacao, useEstoqueLotacoes } from '@/hooks/useEstoque';
 import { useUnidades } from '@/hooks/useUnidades';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,6 +87,7 @@ export default function EstoqueDetalhe() {
   const navigate = useNavigate();
   const { data: item, isLoading: loadingItem } = useEstoqueItemById(id || '');
   const { data: movimentacoes, isLoading: loadingMov } = useEstoqueMovimentacoes(id);
+  const { data: lotacoes } = useEstoqueLotacoes(id);
   const { data: unidades } = useUnidades();
   const converterParaPatrimonial = useConverterParaPatrimonial();
   const verificarPatrimonio = useVerificarPatrimonio();
@@ -100,6 +101,7 @@ export default function EstoqueDetalhe() {
   // Liberação/Transferência dialog
   const [liberarDialogOpen, setLiberarDialogOpen] = React.useState(false);
   const [isLiberando, setIsLiberando] = React.useState(false);
+  const [liberarOrigemId, setLiberarOrigemId] = React.useState('');
   const [liberarDestino, setLiberarDestino] = React.useState<'estoque_geral' | 'transferir'>('estoque_geral');
   const [liberarUnidadeDestinoId, setLiberarUnidadeDestinoId] = React.useState('');
   const [liberarLocalEspecifico, setLiberarLocalEspecifico] = React.useState('');
@@ -108,6 +110,7 @@ export default function EstoqueDetalhe() {
   const [liberarDescricao, setLiberarDescricao] = React.useState('');
 
   const resetLiberarForm = () => {
+    setLiberarOrigemId('');
     setLiberarDestino('estoque_geral');
     setLiberarUnidadeDestinoId('');
     setLiberarLocalEspecifico('');
@@ -115,6 +118,10 @@ export default function EstoqueDetalhe() {
     setLiberarData(new Date());
     setLiberarDescricao('');
   };
+
+  // Selected lotação for max quantity
+  const selectedLotacao = (lotacoes || []).find(l => l.unidade_id === liberarOrigemId);
+  const maxQuantidade = selectedLotacao?.quantidade || 0;
 
   // ============ Patrimônio handlers ============
   const addPatrimonioField = () => {
@@ -188,6 +195,10 @@ export default function EstoqueDetalhe() {
 
   // ============ Liberação handler ============
   const handleLiberar = async () => {
+    if (!liberarOrigemId) {
+      toast.error('Selecione a unidade de origem');
+      return;
+    }
     if (liberarDestino === 'transferir' && !liberarUnidadeDestinoId) {
       toast.error('Selecione a unidade de destino');
       return;
@@ -198,8 +209,8 @@ export default function EstoqueDetalhe() {
       toast.error('Quantidade deve ser maior que zero');
       return;
     }
-    if (qtd !== undefined && item && !item.controle_patrimonial && qtd > (item.quantidade_total || 0)) {
-      toast.error('Quantidade excede o disponível');
+    if (qtd !== undefined && qtd > maxQuantidade) {
+      toast.error(`Quantidade excede o lotado nesta unidade (${maxQuantidade})`);
       return;
     }
 
@@ -207,6 +218,7 @@ export default function EstoqueDetalhe() {
     try {
       await registrarLiberacao.mutateAsync({
         itemId: id!,
+        unidadeOrigemId: liberarOrigemId,
         destino: liberarDestino,
         unidadeDestinoId: liberarDestino === 'transferir' ? liberarUnidadeDestinoId : undefined,
         localEspecifico: liberarDestino === 'transferir' ? liberarLocalEspecifico : undefined,
@@ -257,9 +269,10 @@ export default function EstoqueDetalhe() {
   const config = statusConfig[item.status as keyof typeof statusConfig];
   const isPatrimonial = item.controle_patrimonial;
   const canAddPatrimonio = !isPatrimonial && (item.quantidade_total || 0) > 0 && item.status !== 'baixa';
-  const canLiberar = !!item.unidade_atual_id && item.status !== 'baixa';
+  const hasLotacoes = (lotacoes || []).length > 0;
+  const canLiberar = (hasLotacoes || (!!item.unidade_atual_id && isPatrimonial)) && item.status !== 'baixa';
 
-  const unidadesDisponiveis = (unidades || []).filter(u => u.id !== item.unidade_atual_id);
+  const unidadesDisponiveis = (unidades || []).filter(u => u.id !== liberarOrigemId);
 
   return (
     <Layout>
@@ -315,13 +328,27 @@ export default function EstoqueDetalhe() {
                     </DialogHeader>
 
                     <div className="space-y-4">
-                      {/* Origem */}
+                      {/* Unidade de Origem (dropdown from lotações) */}
                       <div>
-                        <Label className="text-muted-foreground text-xs">Unidade de Origem</Label>
-                        <p className="font-medium flex items-center gap-1.5 mt-1">
-                          <Building2 className="w-4 h-4 text-muted-foreground" />
-                          {item.unidade_atual?.nome}
-                        </p>
+                        <Label>Unidade de Origem *</Label>
+                        <Select value={liberarOrigemId} onValueChange={(v) => { setLiberarOrigemId(v); setLiberarQuantidade(''); }}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Selecionar unidade de origem" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(lotacoes || []).map((lot) => (
+                              <SelectItem key={lot.id} value={lot.unidade_id}>
+                                {lot.unidade?.nome || 'Unidade desconhecida'} ({lot.quantidade} un.)
+                              </SelectItem>
+                            ))}
+                            {/* For patrimonial items with unidade_atual but no lotação */}
+                            {isPatrimonial && item.unidade_atual_id && !(lotacoes || []).some(l => l.unidade_id === item.unidade_atual_id) && (
+                              <SelectItem value={item.unidade_atual_id}>
+                                {item.unidade_atual?.nome || 'Unidade'} (1 un.)
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <Separator />
@@ -370,16 +397,16 @@ export default function EstoqueDetalhe() {
                       )}
 
                       {/* Quantidade (for non-patrimonial items) */}
-                      {!isPatrimonial && (
+                      {!isPatrimonial && liberarOrigemId && (
                         <div>
-                          <Label>Quantidade a liberar</Label>
+                          <Label>Quantidade a liberar (máx: {maxQuantidade})</Label>
                           <Input
                             type="number"
                             min={1}
-                            max={item.quantidade_total}
+                            max={maxQuantidade}
                             value={liberarQuantidade}
                             onChange={(e) => setLiberarQuantidade(e.target.value)}
-                            placeholder={`Máx: ${item.quantidade_total}`}
+                            placeholder={`Máx: ${maxQuantidade}`}
                             className="mt-1"
                           />
                         </div>
@@ -694,8 +721,13 @@ export default function EstoqueDetalhe() {
                                     <span className="font-medium">{mov.local_especifico}</span>
                                   </p>
                                 )}
+                                {mov.quantidade_movimentada && (
+                                  <p>
+                                    <span className="text-muted-foreground">Quantidade:</span>{' '}
+                                    <span className="font-medium">{mov.quantidade_movimentada}</span>
+                                  </p>
+                                )}
                                 <p>
-                                  <span className="text-muted-foreground">Responsável:</span>{' '}
                                   <span className="font-medium">
                                     {mov.responsavel?.nome || mov.responsavel?.email || 'Não identificado'}
                                   </span>
