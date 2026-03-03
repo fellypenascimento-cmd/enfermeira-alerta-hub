@@ -32,6 +32,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Calendar } from '@/components/ui/calendar';
 import { FadeIn } from '@/components/animations';
 import { toast } from 'sonner';
@@ -55,6 +56,7 @@ import {
   Unlock,
   ArrowRightLeft,
   Tag,
+  ChevronDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -588,26 +590,68 @@ export default function EstoqueDetalhe() {
                   </>
                 )}
 
-                <div className="flex items-start gap-3">
-                  <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Localização Atual</p>
-                    <p className="font-medium">
-                      {item.unidade_atual?.nome || 'Estoque Central'}
-                    </p>
-                  </div>
-                </div>
-
-                {item.local_especifico && (
-                  <>
-                    <Separator />
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Local Específico</p>
-                        <p className="font-medium">{item.local_especifico}</p>
+                {/* Unidades Atuais - dynamic from lotações */}
+                {!isPatrimonial && (lotacoes || []).length > 0 ? (
+                  <div className="flex items-start gap-3">
+                    <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div className="w-full">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Unidades Atuais</p>
+                      <div className="space-y-2">
+                        {(lotacoes || []).map((lot) => (
+                          <div key={lot.id} className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="font-medium">{lot.unidade?.nome || 'Desconhecida'}</span>
+                              {lot.local_especifico && (
+                                <span className="text-muted-foreground text-xs">({lot.local_especifico})</span>
+                              )}
+                            </div>
+                            <Badge variant="secondary" className="text-xs">{lot.quantidade} un.</Badge>
+                          </div>
+                        ))}
+                        {/* Estoque Geral = quantidade_total - soma das lotações */}
+                        {(() => {
+                          const totalLotado = (lotacoes || []).reduce((sum, l) => sum + l.quantidade, 0);
+                          const estoqueGeral = (item.quantidade_total || 0) - totalLotado;
+                          if (estoqueGeral > 0) {
+                            return (
+                              <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <Package className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <span className="font-medium">Estoque Geral</span>
+                                </div>
+                                <Badge variant="outline" className="text-xs">{estoqueGeral} un.</Badge>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Localização Atual</p>
+                        <p className="font-medium">
+                          {item.unidade_atual?.nome || 'Estoque Central'}
+                        </p>
+                      </div>
+                    </div>
+                    {item.local_especifico && (
+                      <>
+                        <Separator />
+                        <div className="flex items-start gap-3">
+                          <MapPin className="w-5 h-5 text-muted-foreground mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Local Específico</p>
+                            <p className="font-medium">{item.local_especifico}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -675,72 +719,91 @@ export default function EstoqueDetalhe() {
                 ) : (
                   <div className="relative">
                     <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                       {movimentacoes.map((mov) => {
                         const tipoConfig = tipoMovimentacaoConfig[mov.tipo] || { label: mov.tipo, icon: FileText, color: 'text-muted-foreground' };
                         const TipoIcon = tipoConfig.icon;
                         
                         return (
-                          <div key={mov.id} className="relative pl-10">
-                            <div className={`absolute left-0 w-8 h-8 rounded-full bg-background border-2 flex items-center justify-center ${tipoConfig.color}`}>
-                              <TipoIcon className="w-4 h-4" />
-                            </div>
-                            <div className="bg-muted/30 rounded-lg p-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className={`font-semibold ${tipoConfig.color}`}>
-                                  {tipoConfig.label}
-                                </span>
-                                <span className="text-sm text-muted-foreground">
-                                  {format(new Date(mov.data_movimentacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                                </span>
+                          <Collapsible key={mov.id}>
+                            <div className="relative pl-10">
+                              <div className={`absolute left-0 w-8 h-8 rounded-full bg-background border-2 flex items-center justify-center ${tipoConfig.color}`}>
+                                <TipoIcon className="w-4 h-4" />
                               </div>
-                              
-                              <div className="space-y-1 text-sm">
-                                {mov.unidade_origem && (
-                                  <p>
-                                    <span className="text-muted-foreground">Origem:</span>{' '}
-                                    <span className="font-medium">{mov.unidade_origem.nome}</span>
-                                  </p>
-                                )}
-                                {mov.unidade_destino && (
-                                  <p>
-                                    <span className="text-muted-foreground">Destino:</span>{' '}
-                                    <span className="font-medium">{mov.unidade_destino.nome}</span>
-                                  </p>
-                                )}
-                                {!mov.unidade_destino && mov.tipo === 'liberacao' && (
-                                  <p>
-                                    <span className="text-muted-foreground">Destino:</span>{' '}
-                                    <span className="font-medium">Estoque Geral</span>
-                                  </p>
-                                )}
-                                {mov.local_especifico && (
-                                  <p className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3 text-muted-foreground" />
-                                    <span className="text-muted-foreground">Local:</span>{' '}
-                                    <span className="font-medium">{mov.local_especifico}</span>
-                                  </p>
-                                )}
-                                {mov.quantidade_movimentada && (
-                                  <p>
-                                    <span className="text-muted-foreground">Quantidade:</span>{' '}
-                                    <span className="font-medium">{mov.quantidade_movimentada}</span>
-                                  </p>
-                                )}
-                                <p>
-                                  <span className="font-medium">
-                                    {mov.responsavel?.nome || mov.responsavel?.email || 'Não identificado'}
-                                  </span>
-                                </p>
-                                {mov.observacao && (
-                                  <div className="mt-2 p-2 rounded bg-muted/50 border-l-2 border-primary/30">
-                                    <p className="text-xs text-muted-foreground mb-1">Descrição:</p>
-                                    <p className="text-sm">{mov.observacao}</p>
+                              <CollapsibleTrigger asChild>
+                                <button className="w-full bg-muted/30 rounded-lg p-3 hover:bg-muted/50 transition-colors text-left group">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`font-semibold ${tipoConfig.color}`}>
+                                        {tipoConfig.label}
+                                      </span>
+                                      {mov.quantidade_movimentada && (
+                                        <Badge variant="secondary" className="text-xs font-medium">
+                                          {mov.quantidade_movimentada} un.
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(mov.data_movimentacao), "dd/MM/yyyy", { locale: ptBR })}
+                                      </span>
+                                      <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                                    </div>
                                   </div>
-                                )}
-                              </div>
+                                </button>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="bg-muted/20 rounded-b-lg px-4 py-3 -mt-1 border-t border-border/50 space-y-1.5 text-sm">
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(mov.data_movimentacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                  </p>
+                                  {mov.quantidade_movimentada && (
+                                    <p>
+                                      <span className="text-muted-foreground">Quantidade:</span>{' '}
+                                      <span className="font-semibold">{mov.quantidade_movimentada} unidade(s)</span>
+                                    </p>
+                                  )}
+                                  {mov.unidade_origem && (
+                                    <p>
+                                      <span className="text-muted-foreground">Origem:</span>{' '}
+                                      <span className="font-medium">{mov.unidade_origem.nome}</span>
+                                    </p>
+                                  )}
+                                  {mov.unidade_destino && (
+                                    <p>
+                                      <span className="text-muted-foreground">Destino:</span>{' '}
+                                      <span className="font-medium">{mov.unidade_destino.nome}</span>
+                                    </p>
+                                  )}
+                                  {!mov.unidade_destino && mov.tipo === 'liberacao' && (
+                                    <p>
+                                      <span className="text-muted-foreground">Destino:</span>{' '}
+                                      <span className="font-medium">Estoque Geral</span>
+                                    </p>
+                                  )}
+                                  {mov.local_especifico && (
+                                    <p className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3 text-muted-foreground" />
+                                      <span className="text-muted-foreground">Local:</span>{' '}
+                                      <span className="font-medium">{mov.local_especifico}</span>
+                                    </p>
+                                  )}
+                                  <p>
+                                    <span className="text-muted-foreground">Responsável:</span>{' '}
+                                    <span className="font-medium">
+                                      {mov.responsavel?.nome || mov.responsavel?.email || 'Não identificado'}
+                                    </span>
+                                  </p>
+                                  {mov.observacao && (
+                                    <div className="mt-2 p-2 rounded bg-muted/50 border-l-2 border-primary/30">
+                                      <p className="text-xs text-muted-foreground mb-1">Descrição:</p>
+                                      <p className="text-sm">{mov.observacao}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </CollapsibleContent>
                             </div>
-                          </div>
+                          </Collapsible>
                         );
                       })}
                     </div>
