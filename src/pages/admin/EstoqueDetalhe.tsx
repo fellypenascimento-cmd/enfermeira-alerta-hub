@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { useEstoqueItemById, useEstoqueMovimentacoes, useConverterParaPatrimonial, useVerificarPatrimonio } from '@/hooks/useEstoque';
+import { useEstoqueItemById, useEstoqueMovimentacoes, useConverterParaPatrimonial, useVerificarPatrimonio, useRegistrarLiberacao } from '@/hooks/useEstoque';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,7 @@ import {
   Plus,
   CheckCircle2,
   AlertTriangle,
+  Unlock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -52,6 +53,7 @@ const tipoMovimentacaoConfig = {
   saida: { label: 'Saída', icon: ArrowUpFromLine, color: 'text-blue-600' },
   devolucao: { label: 'Devolução', icon: ArrowDownToLine, color: 'text-orange-600' },
   baixa: { label: 'Baixa', icon: FileText, color: 'text-red-600' },
+  liberacao: { label: 'Liberação', icon: ArrowUpFromLine, color: 'text-purple-600' },
 };
 
 interface PatrimonioInput {
@@ -67,8 +69,11 @@ export default function EstoqueDetalhe() {
   const { data: movimentacoes, isLoading: loadingMov } = useEstoqueMovimentacoes(id);
   const converterParaPatrimonial = useConverterParaPatrimonial();
   const verificarPatrimonio = useVerificarPatrimonio();
+  const registrarLiberacao = useRegistrarLiberacao();
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [liberarDialogOpen, setLiberarDialogOpen] = React.useState(false);
+  const [isLiberando, setIsLiberando] = React.useState(false);
   const [patrimonioInputs, setPatrimonioInputs] = React.useState<PatrimonioInput[]>([{ value: '', isValid: null, isChecking: false }]);
   const [isConverting, setIsConverting] = React.useState(false);
 
@@ -141,6 +146,18 @@ export default function EstoqueDetalhe() {
     }
   };
 
+  const handleLiberar = async () => {
+    setIsLiberando(true);
+    try {
+      await registrarLiberacao.mutateAsync({ itemId: id! });
+      setLiberarDialogOpen(false);
+    } catch {
+      // Error handled in hook
+    } finally {
+      setIsLiberando(false);
+    }
+  };
+
   if (loadingItem) {
     return (
       <Layout>
@@ -175,6 +192,7 @@ export default function EstoqueDetalhe() {
   const config = statusConfig[item.status as keyof typeof statusConfig];
   const isPatrimonial = item.controle_patrimonial;
   const canAddPatrimonio = !isPatrimonial && (item.quantidade_total || 0) > 0 && item.status !== 'baixa';
+  const canLiberar = !!item.unidade_atual_id && item.status !== 'baixa';
 
   return (
     <Layout>
@@ -211,64 +229,91 @@ export default function EstoqueDetalhe() {
                 )}
               </div>
             </div>
-            {canAddPatrimonio && (
-              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Adicionar Patrimônio
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Adicionar Patrimônio</DialogTitle>
-                    <DialogDescription>
-                      Converta unidades deste lote em itens individuais com número de patrimônio.
-                      Disponível: {item.quantidade_total} unidade(s).
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-3 max-h-60 overflow-y-auto">
-                    {patrimonioInputs.map((input, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Hash className="w-4 h-4 text-muted-foreground" />
-                        <Input
-                          value={input.value}
-                          onChange={(e) => handlePatrimonioChange(index, e.target.value)}
-                          placeholder={`Patrimônio ${index + 1}`}
-                          className={cn(
-                            input.isValid === false && 'border-destructive',
-                            input.isValid === true && 'border-green-500'
+            <div className="flex flex-wrap gap-2">
+              {canLiberar && (
+                <Dialog open={liberarDialogOpen} onOpenChange={setLiberarDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50">
+                      <Unlock className="w-4 h-4 mr-2" />
+                      Liberar da Unidade
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Liberar Equipamento</DialogTitle>
+                      <DialogDescription>
+                        O equipamento será desvinculado da unidade "{item.unidade_atual?.nome}" e voltará a ficar disponível no estoque geral.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setLiberarDialogOpen(false)}>Cancelar</Button>
+                      <Button onClick={handleLiberar} disabled={isLiberando}>
+                        {isLiberando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Unlock className="w-4 h-4 mr-2" />}
+                        Confirmar Liberação
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+              {canAddPatrimonio && (
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar Patrimônio
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Adicionar Patrimônio</DialogTitle>
+                      <DialogDescription>
+                        Converta unidades deste lote em itens individuais com número de patrimônio.
+                        Disponível: {item.quantidade_total} unidade(s).
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {patrimonioInputs.map((input, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Hash className="w-4 h-4 text-muted-foreground" />
+                          <Input
+                            value={input.value}
+                            onChange={(e) => handlePatrimonioChange(index, e.target.value)}
+                            placeholder={`Patrimônio ${index + 1}`}
+                            className={cn(
+                              input.isValid === false && 'border-destructive',
+                              input.isValid === true && 'border-green-500'
+                            )}
+                          />
+                          <div className="w-6 flex-shrink-0">
+                            {input.isChecking && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                            {input.isValid === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                            {input.isValid === false && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                          </div>
+                          {patrimonioInputs.length > 1 && (
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePatrimonioField(index)}>
+                              ×
+                            </Button>
                           )}
-                        />
-                        <div className="w-6 flex-shrink-0">
-                          {input.isChecking && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                          {input.isValid === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                          {input.isValid === false && <AlertTriangle className="w-4 h-4 text-destructive" />}
                         </div>
-                        {patrimonioInputs.length > 1 && (
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePatrimonioField(index)}>
-                            ×
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {patrimonioInputs.length < (item.quantidade_total || 0) && (
-                    <Button type="button" variant="outline" size="sm" onClick={addPatrimonioField}>
-                      <Plus className="w-3 h-3 mr-1" />
-                      Adicionar mais
-                    </Button>
-                  )}
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-                    <Button onClick={handleConverter} disabled={isConverting}>
-                      {isConverting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      Converter
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+                      ))}
+                    </div>
+                    {patrimonioInputs.length < (item.quantidade_total || 0) && (
+                      <Button type="button" variant="outline" size="sm" onClick={addPatrimonioField}>
+                        <Plus className="w-3 h-3 mr-1" />
+                        Adicionar mais
+                      </Button>
+                    )}
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+                      <Button onClick={handleConverter} disabled={isConverting}>
+                        {isConverting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        Converter
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
         </FadeIn>
 

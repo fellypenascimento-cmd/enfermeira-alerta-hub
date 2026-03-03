@@ -529,6 +529,80 @@ export function useRegistrarBaixa() {
   });
 }
 
+// ==================== LIBERAÇÃO DE EQUIPAMENTO ====================
+
+export function useRegistrarLiberacao() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      observacao,
+    }: {
+      itemId: string;
+      observacao?: string;
+    }) => {
+      // Buscar item atual
+      const { data: itemAtual, error: fetchError } = await supabase
+        .from('estoque_itens')
+        .select('unidade_atual_id, status')
+        .eq('id', itemId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (!itemAtual?.unidade_atual_id) {
+        throw new Error('Este equipamento já está livre (sem vínculo com unidade).');
+      }
+
+      if (itemAtual?.status === 'baixa') {
+        throw new Error('Não é possível liberar um equipamento com status de baixa.');
+      }
+
+      const unidadeOrigemId = itemAtual.unidade_atual_id;
+
+      // Atualizar item: remover unidade e local
+      const { error: updateError } = await supabase
+        .from('estoque_itens')
+        .update({
+          unidade_atual_id: null,
+          local_especifico: null,
+          status: 'disponivel',
+        })
+        .eq('id', itemId);
+
+      if (updateError) throw updateError;
+
+      // Registrar movimentação
+      const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
+        item_id: itemId,
+        tipo: 'liberacao' as MovimentacaoTipo,
+        data_movimentacao: new Date().toISOString(),
+        unidade_origem_id: unidadeOrigemId,
+        unidade_destino_id: null,
+        responsavel_id: user?.id,
+        observacao: observacao || 'Equipamento liberado da unidade',
+      });
+
+      if (movError) throw movError;
+
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+      toast.success('Equipamento liberado com sucesso!');
+    },
+    onError: (error: any) => {
+      console.error('Error releasing item:', error);
+      toast.error(error.message || 'Erro ao liberar equipamento');
+    },
+  });
+}
+
 // ==================== BUSCA ITENS PARA BAIXA ====================
 
 export function useEstoqueItensParaBaixa(searchTerm?: string) {
