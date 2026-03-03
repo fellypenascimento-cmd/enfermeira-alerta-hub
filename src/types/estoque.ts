@@ -1,5 +1,5 @@
 export type EstoqueStatus = 'disponivel' | 'em_uso' | 'baixa';
-export type MovimentacaoTipo = 'entrada' | 'saida' | 'devolucao' | 'baixa';
+export type MovimentacaoTipo = 'entrada' | 'saida' | 'devolucao' | 'baixa' | 'liberacao';
 
 export interface Produto {
   id: string;
