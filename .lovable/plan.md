@@ -1,51 +1,35 @@
 
 
-# Ajustes Visuais e Funcionais no Módulo de Estoque
+# Correção da Lógica de Lotações no Módulo de Estoque
 
-## Resumo
+## Problema Raiz
 
-Quatro alterações principais: simplificar os cards na listagem, mover detalhes para o histórico, adicionar tipo "liberação" de movimentação, e criar funcionalidade "Liberar da Unidade".
+O `useRegistrarSaida` **não sincroniza** a tabela `estoque_lotacoes`. Quando uma saída é registrada para uma unidade, o registro de lotação não é criado/atualizado. Resultado: o dropdown de "Unidade de Origem" mostra dados incompletos porque a tabela `estoque_lotacoes` está desatualizada.
 
----
+Dados atuais do item TECLADO (`dc546eee`):
+- `estoque_lotacoes`: apenas 1 registro (ESF JARDIM ORIENTE = 9)
+- `estoque_movimentacoes`: saídas para 3 unidades diferentes (JARDIM ORIENTE, SECRETARIA, PRIMAVERA)
+- Nenhuma das saídas populou a tabela de lotações corretamente
 
-## 1. Simplificar Card na Listagem (`Estoque.tsx`)
+## Correções
 
-No card de cada item, remover unidade, local específico e patrimônio. Exibir apenas:
-- Nome do equipamento
-- Quantidade disponível (para itens sem patrimônio) ou número de patrimônio (para patrimoniais)
+### 1. Corrigir `useRegistrarSaida` (`src/hooks/useEstoque.ts`)
 
-Remover os ícones/textos de `Building2`, `MapPin` e `local_especifico` do card da listagem.
+Adicionar lógica de upsert na tabela `estoque_lotacoes` ao registrar uma saída para itens não patrimoniais:
+- Verificar se já existe lotação para item+unidade
+- Se sim, incrementar quantidade
+- Se não, criar novo registro
+- Incluir `quantidade_movimentada` na movimentação
 
-## 2. Botão "Ver Histórico" no Card
+### 2. Recalcular lotações existentes via migração SQL
 
-Adicionar um botão "Ver Histórico" no card que leva à página de detalhe (`/admin/estoque/:id`), que já possui o histórico completo com unidade, local, data, tipo e descrição da movimentação.
+Criar migração que recalcula as lotações a partir do histórico de movimentações, para corrigir os dados existentes que estão inconsistentes. A lógica:
+- Para cada item, calcular saldo por unidade baseado em saídas menos liberações/transferências
+- Recriar registros em `estoque_lotacoes` com os saldos corretos
 
-O link já existe (o card inteiro é clicável), mas adicionaremos um botão explícito para maior clareza.
+### 3. Ajustar `quantidade_total` no `estoque_itens`
 
-## 3. Nova Funcionalidade: "Liberar Equipamento"
-
-### Tipo de movimentação
-Adicionar `'liberacao'` ao tipo de movimentação no TypeScript (`MovimentacaoTipo`).
-
-### Hook `useRegistrarLiberacao` (`useEstoque.ts`)
-Nova mutation que:
-- Remove `unidade_atual_id` (seta como `null`)
-- Remove `local_especifico` (seta como `null`)
-- Mantém status `disponivel`
-- Registra movimentação do tipo `liberacao`
-- Valida: não permite liberar item que já está sem unidade
-
-### UI na página de detalhe (`EstoqueDetalhe.tsx`)
-- Adicionar botão "Liberar da Unidade" visível quando o item tem `unidade_atual_id` e status diferente de `baixa`
-- Dialog de confirmação antes de executar
-- Após liberação, atualizar dados na tela
-
-### Config visual do tipo
-Adicionar `liberacao` ao `tipoMovimentacaoConfig` no detalhe com label "Liberação" e cor apropriada.
-
-## 4. Remover Console Logs de Debug (`EstoqueSaida.tsx`)
-
-Remover o `useEffect` com `console.log` de debug (linhas 39-48).
+O campo `quantidade_total` em `estoque_itens` deve representar a quantidade disponível em estoque geral (não lotada). Atualmente está com 9, mas todos os 9 estão lotados em ESF JARDIM ORIENTE. Após a migração, recalcular este campo também.
 
 ---
 
@@ -53,11 +37,6 @@ Remover o `useEffect` com `console.log` de debug (linhas 39-48).
 
 | Arquivo | Alteração |
 |---|---|
-| `src/types/estoque.ts` | Adicionar `'liberacao'` ao `MovimentacaoTipo` |
-| `src/hooks/useEstoque.ts` | Novo hook `useRegistrarLiberacao` + remover logs |
-| `src/pages/admin/Estoque.tsx` | Simplificar card (remover unidade/local) |
-| `src/pages/admin/EstoqueDetalhe.tsx` | Botão "Liberar da Unidade" + config `liberacao` |
-| `src/pages/admin/EstoqueSaida.tsx` | Remover console.log de debug |
-
-Nenhuma alteração de banco de dados necessária — o campo `tipo` em `estoque_movimentacoes` é `text`, então aceita `'liberacao'` sem migração.
+| `src/hooks/useEstoque.ts` | Adicionar sync de `estoque_lotacoes` no `useRegistrarSaida` |
+| Migração SQL | Recalcular lotações existentes a partir do histórico |
 
