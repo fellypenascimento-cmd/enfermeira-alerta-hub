@@ -218,6 +218,51 @@ export type Database = {
           },
         ]
       }
+      estoque_lotacoes: {
+        Row: {
+          created_at: string | null
+          id: string
+          item_id: string
+          local_especifico: string | null
+          quantidade: number
+          unidade_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          item_id: string
+          local_especifico?: string | null
+          quantidade?: number
+          unidade_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          item_id?: string
+          local_especifico?: string | null
+          quantidade?: number
+          unidade_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_lotacoes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_itens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_lotacoes_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estoque_movimentacoes: {
         Row: {
           created_at: string | null
@@ -226,6 +271,7 @@ export type Database = {
           item_id: string
           local_especifico: string | null
           observacao: string | null
+          quantidade_movimentada: number | null
           responsavel_id: string
           tipo: string
           unidade_destino_id: string | null
@@ -238,6 +284,7 @@ export type Database = {
           item_id: string
           local_especifico?: string | null
           observacao?: string | null
+          quantidade_movimentada?: number | null
           responsavel_id: string
           tipo: string
           unidade_destino_id?: string | null
@@ -250,6 +297,7 @@ export type Database = {
           item_id?: string
           local_especifico?: string | null
           observacao?: string | null
+          quantidade_movimentada?: number | null
           responsavel_id?: string
           tipo?: string
           unidade_destino_id?: string | null
