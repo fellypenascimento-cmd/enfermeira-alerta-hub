@@ -1,5 +1,5 @@
 export type EstoqueStatus = 'disponivel' | 'em_uso' | 'baixa';
-export type MovimentacaoTipo = 'entrada' | 'saida' | 'devolucao' | 'baixa' | 'liberacao' | 'transferencia' | 'patrimonializacao';
+export type MovimentacaoTipo = 'entrada' | 'saida' | 'devolucao' | 'baixa';
 
 export interface Produto {
   id: string;
@@ -38,7 +38,6 @@ export interface EstoqueMovimentacao {
   responsavel_id: string;
   observacao: string | null;
   local_especifico: string | null;
-  quantidade_movimentada: number | null;
   created_at: string;
 }
 

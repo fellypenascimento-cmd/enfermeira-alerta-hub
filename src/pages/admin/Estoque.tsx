@@ -19,8 +19,10 @@ import {
   Hash,
   XCircle,
   Layers,
-  Clock,
+  MapPin,
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const statusConfig = {
   disponivel: { label: 'Disponível', color: 'bg-green-100 text-green-700 border-green-300' },
@@ -181,37 +183,58 @@ export default function Estoque() {
                         const config = statusConfig[item.status as keyof typeof statusConfig];
                         const isPatrimonial = item.controle_patrimonial;
                         return (
-                          <div
+                          <Link
                             key={item.id}
-                            className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                            to={`/admin/estoque/${item.id}`}
+                            className="block"
                           >
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                <Package className="w-5 h-5 text-primary" />
+                            <div className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                  <Package className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">
+                                    {item.produto?.nome || 'Produto não identificado'}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                    {isPatrimonial && item.numero_patrimonio && (
+                                      <span className="flex items-center gap-1">
+                                        <Hash className="w-3 h-3" />
+                                        {item.numero_patrimonio}
+                                      </span>
+                                    )}
+                                    {!isPatrimonial && (
+                                      <span className="flex items-center gap-1">
+                                        <Layers className="w-3 h-3" />
+                                        Quantidade: {item.quantidade_total}
+                                      </span>
+                                    )}
+                                    {item.unidade_atual && (
+                                      <span className="flex items-center gap-1">
+                                        <Building2 className="w-3 h-3" />
+                                        {item.unidade_atual.nome}
+                                      </span>
+                                    )}
+                                    {item.local_especifico && (
+                                      <span className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        {item.local_especifico}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">
-                                  {item.produto?.nome || 'Produto não identificado'}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {isPatrimonial && item.numero_patrimonio
-                                    ? `Patrimônio: ${item.numero_patrimonio}`
-                                    : `Quantidade disponível: ${item.quantidade_total}`}
-                                </p>
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm text-muted-foreground hidden sm:inline">
+                                  {format(new Date(item.data_entrada), 'dd/MM/yyyy', { locale: ptBR })}
+                                </span>
+                                <Badge className={config?.color}>
+                                  {config?.label}
+                                </Badge>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <Badge className={config?.color}>
-                                {config?.label}
-                              </Badge>
-                              <Button asChild variant="outline" size="sm">
-                                <Link to={`/admin/estoque/${item.id}`}>
-                                  <Clock className="w-3 h-3 mr-1" />
-                                  Ver Histórico
-                                </Link>
-                              </Button>
-                            </div>
-                          </div>
+                          </Link>
                         );
                       })}
                     </div>

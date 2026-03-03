@@ -35,6 +35,17 @@ export default function EstoqueSaida() {
   const { data: unidades, isLoading: loadingUnidades, error: errorUnidades } = useUnidades();
   const registrarSaida = useRegistrarSaida();
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[EstoqueSaida] Rendered', { 
+      itensDisponiveis: itensDisponiveis?.length, 
+      loadingItens, 
+      errorItens,
+      unidades: unidades?.length, 
+      loadingUnidades,
+      errorUnidades 
+    });
+  }, [itensDisponiveis, loadingItens, errorItens, unidades, loadingUnidades, errorUnidades]);
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedItemId, setSelectedItemId] = React.useState('');

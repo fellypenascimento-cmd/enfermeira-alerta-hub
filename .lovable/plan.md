@@ -1,42 +1,42 @@
 
 
-# Correção da Lógica de Lotações no Módulo de Estoque
+# Corrigir Erro de Constraint na Saída de Estoque
 
-## Problema Raiz
+## Problema Identificado
 
-O `useRegistrarSaida` **não sincroniza** a tabela `estoque_lotacoes`. Quando uma saída é registrada para uma unidade, o registro de lotação não é criado/atualizado. Resultado: o dropdown de "Unidade de Origem" mostra dados incompletos porque a tabela `estoque_lotacoes` está desatualizada.
+A tabela `estoque_itens` possui um CHECK constraint antigo:
+```
+estoque_itens_quantidade_check: CHECK (quantidade > 0)
+```
 
-Dados atuais do item TECLADO (`dc546eee`):
-- `estoque_lotacoes`: apenas 1 registro (ESF JARDIM ORIENTE = 9)
-- `estoque_movimentacoes`: saídas para 3 unidades diferentes (JARDIM ORIENTE, SECRETARIA, PRIMAVERA)
-- Nenhuma das saídas populou a tabela de lotações corretamente
+Quando um item sem patrimônio tem toda a quantidade retirada (ex: 1 unidade disponível, saída de 1), o código tenta definir `quantidade: 0`, o que viola essa constraint.
 
-## Correções
+## Solução
 
-### 1. Corrigir `useRegistrarSaida` (`src/hooks/useEstoque.ts`)
+Duas correções necessárias:
 
-Adicionar lógica de upsert na tabela `estoque_lotacoes` ao registrar uma saída para itens não patrimoniais:
-- Verificar se já existe lotação para item+unidade
-- Se sim, incrementar quantidade
-- Se não, criar novo registro
-- Incluir `quantidade_movimentada` na movimentação
+### 1. Migração no banco de dados
+Substituir o CHECK constraint para permitir `quantidade >= 0`:
+```sql
+ALTER TABLE public.estoque_itens DROP CONSTRAINT IF EXISTS estoque_itens_quantidade_check;
+ALTER TABLE public.estoque_itens ADD CONSTRAINT estoque_itens_quantidade_check CHECK (quantidade >= 0);
+```
 
-### 2. Recalcular lotações existentes via migração SQL
+### 2. Correção no hook `useRegistrarSaida` (linha 231-241)
+Atualmente o código define `quantidade: novaQtd` onde `novaQtd` pode ser 0. Mesmo com a correção do constraint, a lógica deve ser mais defensiva:
+- Quando `novaQtd === 0` e o item é sem patrimônio, definir `quantidade: 0` e `status: 'em_uso'`
+- O campo `quantidade_total` já é validado pelo trigger (permite >= 0)
 
-Criar migração que recalcula as lotações a partir do histórico de movimentações, para corrigir os dados existentes que estão inconsistentes. A lógica:
-- Para cada item, calcular saldo por unidade baseado em saídas menos liberações/transferências
-- Recriar registros em `estoque_lotacoes` com os saldos corretos
+### 3. Correção no hook `useRegistrarBaixa` (linha 489-498)
+Mesmo problema: define `quantidade: novaQtd` que pode ser 0. Aplicar a mesma correção.
 
-### 3. Ajustar `quantidade_total` no `estoque_itens`
+## Arquivos Afetados
 
-O campo `quantidade_total` em `estoque_itens` deve representar a quantidade disponível em estoque geral (não lotada). Atualmente está com 9, mas todos os 9 estão lotados em ESF JARDIM ORIENTE. Após a migração, recalcular este campo também.
+- Nova migração SQL (corrigir constraint `quantidade >= 0`)
+- `src/hooks/useEstoque.ts` - funções `useRegistrarSaida` e `useRegistrarBaixa`
 
----
+## Sequência
 
-## Arquivos Modificados
-
-| Arquivo | Alteração |
-|---|---|
-| `src/hooks/useEstoque.ts` | Adicionar sync de `estoque_lotacoes` no `useRegistrarSaida` |
-| Migração SQL | Recalcular lotações existentes a partir do histórico |
+1. Executar migração para corrigir o CHECK constraint
+2. Atualizar o código dos hooks para consistência
 

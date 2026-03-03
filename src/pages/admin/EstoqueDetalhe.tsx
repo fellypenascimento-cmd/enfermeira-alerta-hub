@@ -1,23 +1,13 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { useEstoqueItemById, useEstoqueMovimentacoes, useConverterParaPatrimonial, useVerificarPatrimonio, useRegistrarLiberacao, useEstoqueLotacoes } from '@/hooks/useEstoque';
-import { useUnidades } from '@/hooks/useUnidades';
+import { useEstoqueItemById, useEstoqueMovimentacoes, useConverterParaPatrimonial, useVerificarPatrimonio } from '@/hooks/useEstoque';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -27,12 +17,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { FadeIn } from '@/components/animations';
 import { toast } from 'sonner';
 import {
@@ -40,7 +24,7 @@ import {
   Package,
   Building2,
   Hash,
-  Calendar as CalendarIcon,
+  Calendar,
   User,
   Loader2,
   ArrowDownToLine,
@@ -52,9 +36,6 @@ import {
   Plus,
   CheckCircle2,
   AlertTriangle,
-  Unlock,
-  ArrowRightLeft,
-  Tag,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,14 +47,11 @@ const statusConfig = {
   baixa: { label: 'Baixa', color: 'bg-red-100 text-red-700 border-red-300' },
 };
 
-const tipoMovimentacaoConfig: Record<string, { label: string; icon: any; color: string }> = {
+const tipoMovimentacaoConfig = {
   entrada: { label: 'Entrada', icon: ArrowDownToLine, color: 'text-green-600' },
   saida: { label: 'Saída', icon: ArrowUpFromLine, color: 'text-blue-600' },
   devolucao: { label: 'Devolução', icon: ArrowDownToLine, color: 'text-orange-600' },
   baixa: { label: 'Baixa', icon: FileText, color: 'text-red-600' },
-  liberacao: { label: 'Liberação', icon: Unlock, color: 'text-purple-600' },
-  transferencia: { label: 'Transferência', icon: ArrowRightLeft, color: 'text-indigo-600' },
-  patrimonializacao: { label: 'Patrimonialização', icon: Tag, color: 'text-amber-600' },
 };
 
 interface PatrimonioInput {
@@ -87,43 +65,13 @@ export default function EstoqueDetalhe() {
   const navigate = useNavigate();
   const { data: item, isLoading: loadingItem } = useEstoqueItemById(id || '');
   const { data: movimentacoes, isLoading: loadingMov } = useEstoqueMovimentacoes(id);
-  const { data: lotacoes } = useEstoqueLotacoes(id);
-  const { data: unidades } = useUnidades();
   const converterParaPatrimonial = useConverterParaPatrimonial();
   const verificarPatrimonio = useVerificarPatrimonio();
-  const registrarLiberacao = useRegistrarLiberacao();
 
-  // Patrimônio dialog
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [patrimonioInputs, setPatrimonioInputs] = React.useState<PatrimonioInput[]>([{ value: '', isValid: null, isChecking: false }]);
   const [isConverting, setIsConverting] = React.useState(false);
 
-  // Liberação/Transferência dialog
-  const [liberarDialogOpen, setLiberarDialogOpen] = React.useState(false);
-  const [isLiberando, setIsLiberando] = React.useState(false);
-  const [liberarOrigemId, setLiberarOrigemId] = React.useState('');
-  const [liberarDestino, setLiberarDestino] = React.useState<'estoque_geral' | 'transferir'>('estoque_geral');
-  const [liberarUnidadeDestinoId, setLiberarUnidadeDestinoId] = React.useState('');
-  const [liberarLocalEspecifico, setLiberarLocalEspecifico] = React.useState('');
-  const [liberarQuantidade, setLiberarQuantidade] = React.useState('');
-  const [liberarData, setLiberarData] = React.useState<Date>(new Date());
-  const [liberarDescricao, setLiberarDescricao] = React.useState('');
-
-  const resetLiberarForm = () => {
-    setLiberarOrigemId('');
-    setLiberarDestino('estoque_geral');
-    setLiberarUnidadeDestinoId('');
-    setLiberarLocalEspecifico('');
-    setLiberarQuantidade('');
-    setLiberarData(new Date());
-    setLiberarDescricao('');
-  };
-
-  // Selected lotação for max quantity
-  const selectedLotacao = (lotacoes || []).find(l => l.unidade_id === liberarOrigemId);
-  const maxQuantidade = selectedLotacao?.quantidade || 0;
-
-  // ============ Patrimônio handlers ============
   const addPatrimonioField = () => {
     if (item && patrimonioInputs.length < (item.quantidade_total || 0)) {
       setPatrimonioInputs([...patrimonioInputs, { value: '', isValid: null, isChecking: false }]);
@@ -193,48 +141,6 @@ export default function EstoqueDetalhe() {
     }
   };
 
-  // ============ Liberação handler ============
-  const handleLiberar = async () => {
-    if (!liberarOrigemId) {
-      toast.error('Selecione a unidade de origem');
-      return;
-    }
-    if (liberarDestino === 'transferir' && !liberarUnidadeDestinoId) {
-      toast.error('Selecione a unidade de destino');
-      return;
-    }
-
-    const qtd = liberarQuantidade ? parseInt(liberarQuantidade) : undefined;
-    if (qtd !== undefined && qtd <= 0) {
-      toast.error('Quantidade deve ser maior que zero');
-      return;
-    }
-    if (qtd !== undefined && qtd > maxQuantidade) {
-      toast.error(`Quantidade excede o lotado nesta unidade (${maxQuantidade})`);
-      return;
-    }
-
-    setIsLiberando(true);
-    try {
-      await registrarLiberacao.mutateAsync({
-        itemId: id!,
-        unidadeOrigemId: liberarOrigemId,
-        destino: liberarDestino,
-        unidadeDestinoId: liberarDestino === 'transferir' ? liberarUnidadeDestinoId : undefined,
-        localEspecifico: liberarDestino === 'transferir' ? liberarLocalEspecifico : undefined,
-        quantidade: qtd,
-        dataMovimentacao: liberarData.toISOString(),
-        observacao: liberarDescricao || undefined,
-      });
-      setLiberarDialogOpen(false);
-      resetLiberarForm();
-    } catch {
-      // Error handled in hook
-    } finally {
-      setIsLiberando(false);
-    }
-  };
-
   if (loadingItem) {
     return (
       <Layout>
@@ -269,10 +175,6 @@ export default function EstoqueDetalhe() {
   const config = statusConfig[item.status as keyof typeof statusConfig];
   const isPatrimonial = item.controle_patrimonial;
   const canAddPatrimonio = !isPatrimonial && (item.quantidade_total || 0) > 0 && item.status !== 'baixa';
-  const hasLotacoes = (lotacoes || []).length > 0;
-  const canLiberar = (hasLotacoes || (!!item.unidade_atual_id && isPatrimonial)) && item.status !== 'baixa';
-
-  const unidadesDisponiveis = (unidades || []).filter(u => u.id !== liberarOrigemId);
 
   return (
     <Layout>
@@ -309,235 +211,64 @@ export default function EstoqueDetalhe() {
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {/* LIBERAR / TRANSFERIR */}
-              {canLiberar && (
-                <Dialog open={liberarDialogOpen} onOpenChange={(open) => { setLiberarDialogOpen(open); if (!open) resetLiberarForm(); }}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50">
-                      <Unlock className="w-4 h-4 mr-2" />
-                      Liberar da Unidade
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle>Liberar / Transferir Equipamento</DialogTitle>
-                      <DialogDescription>
-                        Desvincular o equipamento da unidade atual ou transferir para outra.
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-4">
-                      {/* Unidade de Origem (dropdown from lotações) */}
-                      <div>
-                        <Label>Unidade de Origem *</Label>
-                        <Select value={liberarOrigemId} onValueChange={(v) => { setLiberarOrigemId(v); setLiberarQuantidade(''); }}>
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Selecionar unidade de origem" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(lotacoes || []).map((lot) => (
-                              <SelectItem key={lot.id} value={lot.unidade_id}>
-                                {lot.unidade?.nome || 'Unidade desconhecida'} ({lot.quantidade} un.)
-                              </SelectItem>
-                            ))}
-                            {/* For patrimonial items with unidade_atual but no lotação */}
-                            {isPatrimonial && item.unidade_atual_id && !(lotacoes || []).some(l => l.unidade_id === item.unidade_atual_id) && (
-                              <SelectItem value={item.unidade_atual_id}>
-                                {item.unidade_atual?.nome || 'Unidade'} (1 un.)
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <Separator />
-
-                      {/* Destino */}
-                      <div>
-                        <Label>Destino</Label>
-                        <RadioGroup value={liberarDestino} onValueChange={(v) => setLiberarDestino(v as any)} className="mt-2 space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="estoque_geral" id="dest_estoque" />
-                            <Label htmlFor="dest_estoque" className="font-normal cursor-pointer">Voltar para Estoque Geral</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="transferir" id="dest_transferir" />
-                            <Label htmlFor="dest_transferir" className="font-normal cursor-pointer">Transferir para outra Unidade</Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-
-                      {/* Unidade destino (if transferir) */}
-                      {liberarDestino === 'transferir' && (
-                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
-                          <div>
-                            <Label>Unidade de Destino</Label>
-                            <Select value={liberarUnidadeDestinoId} onValueChange={setLiberarUnidadeDestinoId}>
-                              <SelectTrigger className="mt-1">
-                                <SelectValue placeholder="Selecione a unidade" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {unidadesDisponiveis.map((u) => (
-                                  <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>Local Específico</Label>
-                            <Input
-                              value={liberarLocalEspecifico}
-                              onChange={(e) => setLiberarLocalEspecifico(e.target.value)}
-                              placeholder="Ex: Sala de Vacina"
-                              className="mt-1"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Quantidade (for non-patrimonial items) */}
-                      {!isPatrimonial && liberarOrigemId && (
-                        <div>
-                          <Label>Quantidade a liberar (máx: {maxQuantidade})</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={maxQuantidade}
-                            value={liberarQuantidade}
-                            onChange={(e) => setLiberarQuantidade(e.target.value)}
-                            placeholder={`Máx: ${maxQuantidade}`}
-                            className="mt-1"
-                          />
-                        </div>
-                      )}
-
-                      {/* Data */}
-                      <div>
-                        <Label>Data da Movimentação</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal mt-1", !liberarData && "text-muted-foreground")}>
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {liberarData ? format(liberarData, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={liberarData}
-                              onSelect={(d) => d && setLiberarData(d)}
-                              initialFocus
-                              className="p-3 pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-
-                      {/* Descrição */}
-                      <div>
-                        <Label>Descrição da Movimentação</Label>
-                        <Textarea
-                          value={liberarDescricao}
-                          onChange={(e) => setLiberarDescricao(e.target.value)}
-                          placeholder="Motivo ou observação..."
-                          className="mt-1"
-                          rows={2}
+            {canAddPatrimonio && (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Patrimônio
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Patrimônio</DialogTitle>
+                    <DialogDescription>
+                      Converta unidades deste lote em itens individuais com número de patrimônio.
+                      Disponível: {item.quantidade_total} unidade(s).
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {patrimonioInputs.map((input, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-muted-foreground" />
+                        <Input
+                          value={input.value}
+                          onChange={(e) => handlePatrimonioChange(index, e.target.value)}
+                          placeholder={`Patrimônio ${index + 1}`}
+                          className={cn(
+                            input.isValid === false && 'border-destructive',
+                            input.isValid === true && 'border-green-500'
+                          )}
                         />
-                      </div>
-                    </div>
-
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => { setLiberarDialogOpen(false); resetLiberarForm(); }}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={handleLiberar} disabled={isLiberando}>
-                        {isLiberando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Unlock className="w-4 h-4 mr-2" />}
-                        Confirmar
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-
-              {/* ADICIONAR PATRIMÔNIO */}
-              {canAddPatrimonio && (
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar Patrimônio
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Adicionar Patrimônio</DialogTitle>
-                      <DialogDescription>
-                        Converta unidades deste lote em itens individuais com número de patrimônio.
-                        Disponível: {item.quantidade_total} unidade(s).
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    {/* Info atual */}
-                    {item.unidade_atual_id && (
-                      <div className="rounded-md bg-muted/50 p-3 space-y-1 text-sm">
-                        <p className="text-muted-foreground">Os novos itens patrimoniais manterão:</p>
-                        <p className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="font-medium">{item.unidade_atual?.nome || 'Estoque Central'}</span>
-                        </p>
-                        {item.local_especifico && (
-                          <p className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="font-medium">{item.local_especifico}</span>
-                          </p>
+                        <div className="w-6 flex-shrink-0">
+                          {input.isChecking && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                          {input.isValid === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                          {input.isValid === false && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                        </div>
+                        {patrimonioInputs.length > 1 && (
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePatrimonioField(index)}>
+                            ×
+                          </Button>
                         )}
                       </div>
-                    )}
-
-                    <div className="space-y-3 max-h-60 overflow-y-auto">
-                      {patrimonioInputs.map((input, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Hash className="w-4 h-4 text-muted-foreground" />
-                          <Input
-                            value={input.value}
-                            onChange={(e) => handlePatrimonioChange(index, e.target.value)}
-                            placeholder={`Patrimônio ${index + 1}`}
-                            className={cn(
-                              input.isValid === false && 'border-destructive',
-                              input.isValid === true && 'border-green-500'
-                            )}
-                          />
-                          <div className="w-6 flex-shrink-0">
-                            {input.isChecking && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                            {input.isValid === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                            {input.isValid === false && <AlertTriangle className="w-4 h-4 text-destructive" />}
-                          </div>
-                          {patrimonioInputs.length > 1 && (
-                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePatrimonioField(index)}>
-                              ×
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {patrimonioInputs.length < (item.quantidade_total || 0) && (
-                      <Button type="button" variant="outline" size="sm" onClick={addPatrimonioField}>
-                        <Plus className="w-3 h-3 mr-1" />
-                        Adicionar mais
-                      </Button>
-                    )}
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-                      <Button onClick={handleConverter} disabled={isConverting}>
-                        {isConverting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        Converter
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
+                    ))}
+                  </div>
+                  {patrimonioInputs.length < (item.quantidade_total || 0) && (
+                    <Button type="button" variant="outline" size="sm" onClick={addPatrimonioField}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      Adicionar mais
+                    </Button>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+                    <Button onClick={handleConverter} disabled={isConverting}>
+                      {isConverting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                      Converter
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </FadeIn>
 
@@ -614,7 +345,7 @@ export default function EstoqueDetalhe() {
                 <Separator />
 
                 <div className="flex items-start gap-3">
-                  <CalendarIcon className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Data de Entrada</p>
                     <p className="font-medium">
@@ -677,18 +408,18 @@ export default function EstoqueDetalhe() {
                     <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
                     <div className="space-y-6">
                       {movimentacoes.map((mov) => {
-                        const tipoConfig = tipoMovimentacaoConfig[mov.tipo] || { label: mov.tipo, icon: FileText, color: 'text-muted-foreground' };
-                        const TipoIcon = tipoConfig.icon;
+                        const tipoConfig = tipoMovimentacaoConfig[mov.tipo as keyof typeof tipoMovimentacaoConfig];
+                        const TipoIcon = tipoConfig?.icon || FileText;
                         
                         return (
                           <div key={mov.id} className="relative pl-10">
-                            <div className={`absolute left-0 w-8 h-8 rounded-full bg-background border-2 flex items-center justify-center ${tipoConfig.color}`}>
+                            <div className={`absolute left-0 w-8 h-8 rounded-full bg-background border-2 flex items-center justify-center ${tipoConfig?.color || 'text-muted-foreground'}`}>
                               <TipoIcon className="w-4 h-4" />
                             </div>
                             <div className="bg-muted/30 rounded-lg p-4">
                               <div className="flex items-center justify-between mb-2">
-                                <span className={`font-semibold ${tipoConfig.color}`}>
-                                  {tipoConfig.label}
+                                <span className={`font-semibold ${tipoConfig?.color}`}>
+                                  {tipoConfig?.label || mov.tipo}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
                                   {format(new Date(mov.data_movimentacao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -696,22 +427,16 @@ export default function EstoqueDetalhe() {
                               </div>
                               
                               <div className="space-y-1 text-sm">
-                                {mov.unidade_origem && (
-                                  <p>
-                                    <span className="text-muted-foreground">Origem:</span>{' '}
-                                    <span className="font-medium">{mov.unidade_origem.nome}</span>
-                                  </p>
-                                )}
                                 {mov.unidade_destino && (
                                   <p>
                                     <span className="text-muted-foreground">Destino:</span>{' '}
                                     <span className="font-medium">{mov.unidade_destino.nome}</span>
                                   </p>
                                 )}
-                                {!mov.unidade_destino && mov.tipo === 'liberacao' && (
+                                {mov.unidade_origem && (
                                   <p>
-                                    <span className="text-muted-foreground">Destino:</span>{' '}
-                                    <span className="font-medium">Estoque Geral</span>
+                                    <span className="text-muted-foreground">Origem:</span>{' '}
+                                    <span className="font-medium">{mov.unidade_origem.nome}</span>
                                   </p>
                                 )}
                                 {mov.local_especifico && (
@@ -721,20 +446,15 @@ export default function EstoqueDetalhe() {
                                     <span className="font-medium">{mov.local_especifico}</span>
                                   </p>
                                 )}
-                                {mov.quantidade_movimentada && (
-                                  <p>
-                                    <span className="text-muted-foreground">Quantidade:</span>{' '}
-                                    <span className="font-medium">{mov.quantidade_movimentada}</span>
-                                  </p>
-                                )}
                                 <p>
+                                  <span className="text-muted-foreground">Responsável:</span>{' '}
                                   <span className="font-medium">
                                     {mov.responsavel?.nome || mov.responsavel?.email || 'Não identificado'}
                                   </span>
                                 </p>
                                 {mov.observacao && (
                                   <div className="mt-2 p-2 rounded bg-muted/50 border-l-2 border-primary/30">
-                                    <p className="text-xs text-muted-foreground mb-1">Descrição:</p>
+                                    <p className="text-xs text-muted-foreground mb-1">Descrição da movimentação:</p>
                                     <p className="text-sm">{mov.observacao}</p>
                                   </div>
                                 )}
