@@ -18,12 +18,7 @@ import {
   FileText,
   Hash,
   XCircle,
-  Layers,
-  MapPin,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
 const statusConfig = {
   disponivel: { label: 'Disponível', color: 'bg-green-100 text-green-700 border-green-300' },
   em_uso: { label: 'Em Uso', color: 'bg-blue-100 text-blue-700 border-blue-300' },
@@ -197,42 +192,21 @@ export default function Estoque() {
                                   <p className="font-medium">
                                     {item.produto?.nome || 'Produto não identificado'}
                                   </p>
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                                    {isPatrimonial && item.numero_patrimonio && (
-                                      <span className="flex items-center gap-1">
-                                        <Hash className="w-3 h-3" />
-                                        {item.numero_patrimonio}
-                                      </span>
-                                    )}
-                                    {!isPatrimonial && (
-                                      <span className="flex items-center gap-1">
-                                        <Layers className="w-3 h-3" />
-                                        Quantidade: {item.quantidade_total}
-                                      </span>
-                                    )}
-                                    {item.unidade_atual && (
-                                      <span className="flex items-center gap-1">
-                                        <Building2 className="w-3 h-3" />
-                                        {item.unidade_atual.nome}
-                                      </span>
-                                    )}
-                                    {item.local_especifico && (
-                                      <span className="flex items-center gap-1">
-                                        <MapPin className="w-3 h-3" />
-                                        {item.local_especifico}
-                                      </span>
-                                    )}
-                                  </div>
+                                  {isPatrimonial && item.numero_patrimonio ? (
+                                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                                      <Hash className="w-3 h-3" />
+                                      {item.numero_patrimonio}
+                                    </span>
+                                  ) : (
+                                    <span className="text-base font-semibold text-primary">
+                                      Quantidade disponível: {item.quantidade_total}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <span className="text-sm text-muted-foreground hidden sm:inline">
-                                  {format(new Date(item.data_entrada), 'dd/MM/yyyy', { locale: ptBR })}
-                                </span>
-                                <Badge className={config?.color}>
-                                  {config?.label}
-                                </Badge>
-                              </div>
+                              <Badge className={config?.color}>
+                                {config?.label}
+                              </Badge>
                             </div>
                           </Link>
                         );
