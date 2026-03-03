@@ -538,6 +538,36 @@ export function useRegistrarBaixa() {
   });
 }
 
+// ==================== LOTAÇÕES POR UNIDADE ====================
+
+export function useEstoqueLotacoes(itemId?: string) {
+  return useQuery({
+    queryKey: ['estoque-lotacoes', itemId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estoque_lotacoes')
+        .select(`
+          *,
+          unidade:unidades(id, nome)
+        `)
+        .eq('item_id', itemId!)
+        .gt('quantidade', 0)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as Array<{
+        id: string;
+        item_id: string;
+        unidade_id: string;
+        quantidade: number;
+        local_especifico: string | null;
+        unidade: { id: string; nome: string } | null;
+      }>;
+    },
+    enabled: !!itemId,
+  });
+}
+
 // ==================== LIBERAÇÃO / TRANSFERÊNCIA ====================
 
 export function useRegistrarLiberacao() {
@@ -547,6 +577,7 @@ export function useRegistrarLiberacao() {
   return useMutation({
     mutationFn: async ({
       itemId,
+      unidadeOrigemId,
       destino,
       unidadeDestinoId,
       localEspecifico,
@@ -555,6 +586,7 @@ export function useRegistrarLiberacao() {
       observacao,
     }: {
       itemId: string;
+      unidadeOrigemId: string;
       destino: 'estoque_geral' | 'transferir';
       unidadeDestinoId?: string;
       localEspecifico?: string;
@@ -562,17 +594,24 @@ export function useRegistrarLiberacao() {
       dataMovimentacao: string;
       observacao?: string;
     }) => {
+      // Fetch the lotação for the specific origin unit
+      const { data: lotacao, error: lotError } = await supabase
+        .from('estoque_lotacoes')
+        .select('id, quantidade, local_especifico')
+        .eq('item_id', itemId)
+        .eq('unidade_id', unidadeOrigemId)
+        .gt('quantidade', 0)
+        .single();
+
+      if (lotError || !lotacao) throw new Error('Lotação não encontrada para esta unidade.');
+
       const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('unidade_atual_id, status, controle_patrimonial, quantidade_total')
+        .select('status, controle_patrimonial, quantidade_total')
         .eq('id', itemId)
         .single();
 
       if (fetchError) throw fetchError;
-
-      if (!itemAtual?.unidade_atual_id) {
-        throw new Error('Este equipamento já está livre (sem vínculo com unidade).');
-      }
 
       if (itemAtual?.status === 'baixa') {
         throw new Error('Não é possível liberar um equipamento com status de baixa.');
@@ -582,84 +621,66 @@ export function useRegistrarLiberacao() {
         throw new Error('Selecione a unidade de destino para transferência.');
       }
 
-      const unidadeOrigemId = itemAtual.unidade_atual_id;
+      const qtdLiberar = quantidade || (itemAtual?.controle_patrimonial ? 1 : lotacao.quantidade);
 
-      if (itemAtual.controle_patrimonial) {
-        // Patrimonial: always full item
-        if (destino === 'estoque_geral') {
-          await supabase
-            .from('estoque_itens')
-            .update({
-              unidade_atual_id: null,
-              local_especifico: null,
-              status: 'disponivel',
-            })
-            .eq('id', itemId);
-        } else {
-          await supabase
-            .from('estoque_itens')
-            .update({
-              unidade_atual_id: unidadeDestinoId!,
-              local_especifico: localEspecifico || null,
-              status: 'em_uso',
-            })
-            .eq('id', itemId);
-        }
-      } else {
-        // Non-patrimonial: partial quantity supported
-        const qtdLiberar = quantidade || (itemAtual.quantidade_total || 1);
-        if (qtdLiberar > (itemAtual.quantidade_total || 0)) {
-          throw new Error('Quantidade a liberar excede o disponível');
-        }
-
-        if (destino === 'estoque_geral') {
-          // All goes back to general stock
-          const novaQtd = (itemAtual.quantidade_total || 0);
-          // Quantity stays the same, just remove unit binding
-          if (qtdLiberar === novaQtd) {
-            await supabase
-              .from('estoque_itens')
-              .update({
-                unidade_atual_id: null,
-                local_especifico: null,
-                status: 'disponivel',
-              })
-              .eq('id', itemId);
-          } else {
-            // Partial: reduce qty, item stays at unit with remaining
-            await supabase
-              .from('estoque_itens')
-              .update({
-                quantidade_total: novaQtd - qtdLiberar,
-                quantidade: novaQtd - qtdLiberar,
-              })
-              .eq('id', itemId);
-          }
-        } else {
-          // Transfer to another unit
-          if (qtdLiberar === (itemAtual.quantidade_total || 0)) {
-            await supabase
-              .from('estoque_itens')
-              .update({
-                unidade_atual_id: unidadeDestinoId!,
-                local_especifico: localEspecifico || null,
-                status: 'em_uso',
-              })
-              .eq('id', itemId);
-          } else {
-            // Partial transfer: reduce from current, qty stays at origin
-            await supabase
-              .from('estoque_itens')
-              .update({
-                quantidade_total: (itemAtual.quantidade_total || 0) - qtdLiberar,
-                quantidade: (itemAtual.quantidade_total || 0) - qtdLiberar,
-              })
-              .eq('id', itemId);
-          }
-        }
+      if (qtdLiberar <= 0) throw new Error('Quantidade deve ser maior que zero.');
+      if (qtdLiberar > lotacao.quantidade) {
+        throw new Error(`Quantidade a liberar (${qtdLiberar}) excede a lotada nesta unidade (${lotacao.quantidade}).`);
       }
 
-      // Record movement
+      // 1. Update lotação at origin
+      const novaQtdLotacao = lotacao.quantidade - qtdLiberar;
+      if (novaQtdLotacao <= 0) {
+        await supabase.from('estoque_lotacoes').delete().eq('id', lotacao.id);
+      } else {
+        await supabase.from('estoque_lotacoes').update({ quantidade: novaQtdLotacao }).eq('id', lotacao.id);
+      }
+
+      // 2. Handle destination
+      if (destino === 'transferir' && unidadeDestinoId) {
+        // Upsert lotação at destination
+        const { data: lotDest } = await supabase
+          .from('estoque_lotacoes')
+          .select('id, quantidade')
+          .eq('item_id', itemId)
+          .eq('unidade_id', unidadeDestinoId)
+          .maybeSingle();
+
+        if (lotDest) {
+          await supabase.from('estoque_lotacoes').update({
+            quantidade: lotDest.quantidade + qtdLiberar,
+            ...(localEspecifico ? { local_especifico: localEspecifico } : {}),
+          }).eq('id', lotDest.id);
+        } else {
+          await supabase.from('estoque_lotacoes').insert({
+            item_id: itemId,
+            unidade_id: unidadeDestinoId,
+            quantidade: qtdLiberar,
+            local_especifico: localEspecifico || null,
+          });
+        }
+      }
+      // If estoque_geral, quantity goes back to general stock (no lotação record needed)
+
+      // 3. Recalculate totals from remaining lotações
+      const { data: allLotacoes } = await supabase
+        .from('estoque_lotacoes')
+        .select('quantidade')
+        .eq('item_id', itemId)
+        .gt('quantidade', 0);
+
+      const totalLotado = (allLotacoes || []).reduce((sum, l) => sum + l.quantidade, 0);
+
+      // Update estoque_itens status based on remaining lotações
+      if (totalLotado === 0) {
+        await supabase.from('estoque_itens').update({
+          unidade_atual_id: null,
+          local_especifico: null,
+          status: 'disponivel',
+        }).eq('id', itemId);
+      }
+
+      // 4. Record movement
       const tipo: MovimentacaoTipo = destino === 'transferir' ? 'transferencia' : 'liberacao';
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
         item_id: itemId,
@@ -670,6 +691,7 @@ export function useRegistrarLiberacao() {
         responsavel_id: user?.id,
         observacao: observacao || (destino === 'transferir' ? 'Transferência entre unidades' : 'Equipamento liberado da unidade'),
         local_especifico: localEspecifico || null,
+        quantidade_movimentada: qtdLiberar,
       });
 
       if (movError) throw movError;
@@ -680,6 +702,7 @@ export function useRegistrarLiberacao() {
       queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
+      queryClient.invalidateQueries({ queryKey: ['estoque-lotacoes'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
       toast.success('Movimentação registrada com sucesso!');
     },
