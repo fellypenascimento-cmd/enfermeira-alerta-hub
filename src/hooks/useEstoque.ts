@@ -206,14 +206,6 @@ export function useRegistrarSaida() {
 
       if (!itemAtual) throw new Error('Item não encontrado');
 
-      const qtdSaida = itemAtual.controle_patrimonial ? 1 : (quantidadeSaida || 1);
-
-      if (!itemAtual.controle_patrimonial) {
-        if (qtdSaida > (itemAtual.quantidade_total || 0)) {
-          throw new Error('Quantidade de saída excede o disponível');
-        }
-      }
-
       if (itemAtual.controle_patrimonial) {
         const { error: updateError } = await supabase
           .from('estoque_itens')
@@ -226,6 +218,11 @@ export function useRegistrarSaida() {
 
         if (updateError) throw updateError;
       } else {
+        const qtdSaida = quantidadeSaida || 1;
+        if (qtdSaida > (itemAtual.quantidade_total || 0)) {
+          throw new Error('Quantidade de saída excede o disponível');
+        }
+
         const novaQtd = (itemAtual.quantidade_total || 0) - qtdSaida;
         const { error: updateError } = await supabase
           .from('estoque_itens')
@@ -241,30 +238,6 @@ export function useRegistrarSaida() {
         if (updateError) throw updateError;
       }
 
-      // Sync estoque_lotacoes: upsert destination lotação
-      if (!itemAtual.controle_patrimonial) {
-        const { data: lotDest } = await supabase
-          .from('estoque_lotacoes')
-          .select('id, quantidade')
-          .eq('item_id', itemId)
-          .eq('unidade_id', unidadeDestinoId)
-          .maybeSingle();
-
-        if (lotDest) {
-          await supabase.from('estoque_lotacoes').update({
-            quantidade: lotDest.quantidade + qtdSaida,
-            ...(localEspecifico ? { local_especifico: localEspecifico } : {}),
-          }).eq('id', lotDest.id);
-        } else {
-          await supabase.from('estoque_lotacoes').insert({
-            item_id: itemId,
-            unidade_id: unidadeDestinoId,
-            quantidade: qtdSaida,
-            local_especifico: localEspecifico || null,
-          });
-        }
-      }
-
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
         item_id: itemId,
         tipo: 'saida' as MovimentacaoTipo,
@@ -274,7 +247,6 @@ export function useRegistrarSaida() {
         responsavel_id: user?.id,
         observacao: observacao || 'Saída para unidade',
         local_especifico: localEspecifico || null,
-        quantidade_movimentada: qtdSaida,
       });
 
       if (movError) throw movError;
@@ -285,7 +257,6 @@ export function useRegistrarSaida() {
       queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-lotacoes'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
       toast.success('Saída registrada com sucesso!');
     },
