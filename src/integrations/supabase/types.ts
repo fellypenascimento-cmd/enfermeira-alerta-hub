@@ -158,6 +158,7 @@ export type Database = {
           quantidade: number | null
           quantidade_total: number
           responsavel_entrada_id: string
+          sala_id: string | null
           status: string | null
           unidade_atual_id: string | null
           updated_at: string | null
@@ -174,6 +175,7 @@ export type Database = {
           quantidade?: number | null
           quantidade_total?: number
           responsavel_entrada_id: string
+          sala_id?: string | null
           status?: string | null
           unidade_atual_id?: string | null
           updated_at?: string | null
@@ -190,6 +192,7 @@ export type Database = {
           quantidade?: number | null
           quantidade_total?: number
           responsavel_entrada_id?: string
+          sala_id?: string | null
           status?: string | null
           unidade_atual_id?: string | null
           updated_at?: string | null
@@ -210,6 +213,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "estoque_itens_sala_id_fkey"
+            columns: ["sala_id"]
+            isOneToOne: false
+            referencedRelation: "salas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "estoque_itens_unidade_atual_id_fkey"
             columns: ["unidade_atual_id"]
             isOneToOne: false
@@ -225,6 +235,7 @@ export type Database = {
           item_id: string
           local_especifico: string | null
           quantidade: number
+          sala_id: string | null
           unidade_id: string
           updated_at: string | null
         }
@@ -234,6 +245,7 @@ export type Database = {
           item_id: string
           local_especifico?: string | null
           quantidade?: number
+          sala_id?: string | null
           unidade_id: string
           updated_at?: string | null
         }
@@ -243,6 +255,7 @@ export type Database = {
           item_id?: string
           local_especifico?: string | null
           quantidade?: number
+          sala_id?: string | null
           unidade_id?: string
           updated_at?: string | null
         }
@@ -252,6 +265,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "estoque_itens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_lotacoes_sala_id_fkey"
+            columns: ["sala_id"]
+            isOneToOne: false
+            referencedRelation: "salas"
             referencedColumns: ["id"]
           },
           {
@@ -273,6 +293,8 @@ export type Database = {
           observacao: string | null
           quantidade_movimentada: number | null
           responsavel_id: string
+          sala_destino_id: string | null
+          sala_origem_id: string | null
           tipo: string
           unidade_destino_id: string | null
           unidade_origem_id: string | null
@@ -286,6 +308,8 @@ export type Database = {
           observacao?: string | null
           quantidade_movimentada?: number | null
           responsavel_id: string
+          sala_destino_id?: string | null
+          sala_origem_id?: string | null
           tipo: string
           unidade_destino_id?: string | null
           unidade_origem_id?: string | null
@@ -299,6 +323,8 @@ export type Database = {
           observacao?: string | null
           quantidade_movimentada?: number | null
           responsavel_id?: string
+          sala_destino_id?: string | null
+          sala_origem_id?: string | null
           tipo?: string
           unidade_destino_id?: string | null
           unidade_origem_id?: string | null
@@ -316,6 +342,20 @@ export type Database = {
             columns: ["responsavel_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_movimentacoes_sala_destino_id_fkey"
+            columns: ["sala_destino_id"]
+            isOneToOne: false
+            referencedRelation: "salas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_movimentacoes_sala_origem_id_fkey"
+            columns: ["sala_origem_id"]
+            isOneToOne: false
+            referencedRelation: "salas"
             referencedColumns: ["id"]
           },
           {
@@ -461,6 +501,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      salas: {
+        Row: {
+          ativa: boolean
+          created_at: string | null
+          id: string
+          nome: string
+          unidade_id: string
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string | null
+          id?: string
+          nome: string
+          unidade_id: string
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string | null
+          id?: string
+          nome?: string
+          unidade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salas_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       unidades: {
         Row: {
