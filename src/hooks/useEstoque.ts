@@ -6,7 +6,10 @@ import type {
   EstoqueItemWithRelations, 
   EstoqueMovimentacaoWithRelations,
   EstoqueStatus,
-  MovimentacaoTipo 
+  MovimentacaoTipo,
+  ProdutoResumo,
+  Sala,
+  SalaWithUnidade,
 } from '@/types/estoque';
 import { toast } from 'sonner';
 
@@ -53,6 +56,181 @@ export function useCreateProduto() {
   });
 }
 
+// ==================== SALAS ====================
+
+export function useSalas(unidadeId?: string) {
+  return useQuery({
+    queryKey: ['salas', unidadeId],
+    queryFn: async () => {
+      let query = supabase
+        .from('salas')
+        .select('*, unidade:unidades(id, nome)')
+        .eq('ativa', true)
+        .order('nome');
+
+      if (unidadeId) {
+        query = query.eq('unidade_id', unidadeId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as SalaWithUnidade[];
+    },
+  });
+}
+
+export function useCreateSala() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { nome: string; unidade_id: string }) => {
+      const { data: sala, error } = await supabase
+        .from('salas')
+        .insert(data)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return sala;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['salas'] });
+      toast.success('Sala cadastrada!');
+    },
+    onError: (error) => {
+      console.error('Error creating sala:', error);
+      toast.error('Erro ao cadastrar sala');
+    },
+  });
+}
+
+// ==================== PRODUTOS RESUMO (TELA PRINCIPAL) ====================
+
+export function useProdutosResumo() {
+  return useQuery({
+    queryKey: ['produtos-resumo'],
+    queryFn: async () => {
+      // Get all estoque items with product info
+      const { data, error } = await supabase
+        .from('estoque_itens')
+        .select('produto_id, status, quantidade_total, controle_patrimonial, produto:produtos(id, nome, categoria)');
+
+      if (error) throw error;
+
+      // Aggregate by product
+      const resumoMap = new Map<string, ProdutoResumo>();
+
+      for (const item of data || []) {
+        const produtoId = item.produto_id;
+        const produto = item.produto as any;
+        
+        if (!resumoMap.has(produtoId)) {
+          resumoMap.set(produtoId, {
+            produto_id: produtoId,
+            nome: produto?.nome || 'Produto desconhecido',
+            categoria: produto?.categoria || null,
+            total: 0,
+            disponivel: 0,
+            em_uso: 0,
+            manutencao: 0,
+            baixa: 0,
+          });
+        }
+
+        const resumo = resumoMap.get(produtoId)!;
+        const qty = item.controle_patrimonial ? 1 : (item.quantidade_total || 0);
+        
+        resumo.total += qty;
+        
+        switch (item.status) {
+          case 'disponivel':
+            resumo.disponivel += qty;
+            break;
+          case 'em_uso':
+            resumo.em_uso += qty;
+            break;
+          case 'manutencao':
+            resumo.manutencao += qty;
+            break;
+          case 'baixa':
+            resumo.baixa += qty;
+            break;
+        }
+      }
+
+      return Array.from(resumoMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+    },
+  });
+}
+
+// ==================== DISTRIBUIÇÃO POR PRODUTO ====================
+
+export function useProdutoDistribuicao(produtoId: string) {
+  return useQuery({
+    queryKey: ['produto-distribuicao', produtoId],
+    queryFn: async () => {
+      // Get lotacoes for items of this product
+      const { data: itens, error: itensError } = await supabase
+        .from('estoque_itens')
+        .select('id')
+        .eq('produto_id', produtoId);
+
+      if (itensError) throw itensError;
+
+      const itemIds = (itens || []).map(i => i.id);
+      if (itemIds.length === 0) return { porUnidade: [], porSala: [] };
+
+      const { data: lotacoes, error: lotError } = await supabase
+        .from('estoque_lotacoes')
+        .select('*, unidade:unidades(id, nome), sala:salas(id, nome)')
+        .in('item_id', itemIds);
+
+      if (lotError) throw lotError;
+
+      // Aggregate by unidade
+      const unidadeMap = new Map<string, { unidade_id: string; unidade_nome: string; quantidade: number }>();
+      const salaMap = new Map<string, { sala_id: string; sala_nome: string; unidade_id: string; unidade_nome: string; quantidade: number }>();
+
+      for (const lot of lotacoes || []) {
+        const unidade = lot.unidade as any;
+        const sala = lot.sala as any;
+        const unidadeId = lot.unidade_id;
+        
+        // By unidade
+        if (!unidadeMap.has(unidadeId)) {
+          unidadeMap.set(unidadeId, {
+            unidade_id: unidadeId,
+            unidade_nome: unidade?.nome || 'Desconhecida',
+            quantidade: 0,
+          });
+        }
+        unidadeMap.get(unidadeId)!.quantidade += lot.quantidade || 0;
+
+        // By sala
+        if (sala) {
+          const salaKey = lot.sala_id || 'sem-sala';
+          if (!salaMap.has(salaKey)) {
+            salaMap.set(salaKey, {
+              sala_id: sala.id,
+              sala_nome: sala.nome,
+              unidade_id: unidadeId,
+              unidade_nome: unidade?.nome || 'Desconhecida',
+              quantidade: 0,
+            });
+          }
+          salaMap.get(salaKey)!.quantidade += lot.quantidade || 0;
+        }
+      }
+
+      return {
+        porUnidade: Array.from(unidadeMap.values()),
+        porSala: Array.from(salaMap.values()),
+      };
+    },
+    enabled: !!produtoId,
+  });
+}
+
 // ==================== ESTOQUE ITENS ====================
 
 export function useEstoqueItens(options?: {
@@ -68,7 +246,8 @@ export function useEstoqueItens(options?: {
         .select(`
           *,
           produto:produtos(id, nome, categoria),
-          unidade_atual:unidades(id, nome)
+          unidade_atual:unidades(id, nome),
+          sala:salas(id, nome)
         `)
         .order('created_at', { ascending: false });
 
@@ -98,12 +277,12 @@ export function useEstoqueItemById(id: string) {
         .select(`
           *,
           produto:produtos(id, nome, categoria, descricao),
-          unidade_atual:unidades(id, nome)
+          unidade_atual:unidades(id, nome),
+          sala:salas(id, nome)
         `)
         .eq('id', id)
         .maybeSingle();
       
-      // Buscar responsável separadamente
       let responsavel_entrada = null;
       if (data?.responsavel_entrada_id) {
         const { data: respData } = await supabase
@@ -118,6 +297,30 @@ export function useEstoqueItemById(id: string) {
       return data ? { ...data, responsavel_entrada } as EstoqueItemWithRelations : null;
     },
     enabled: !!id,
+  });
+}
+
+// ==================== ITENS POR PRODUTO (para detalhe do produto) ====================
+
+export function useEstoqueItensPorProduto(produtoId: string) {
+  return useQuery({
+    queryKey: ['estoque-itens-produto', produtoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estoque_itens')
+        .select(`
+          *,
+          produto:produtos(id, nome, categoria),
+          unidade_atual:unidades(id, nome),
+          sala:salas(id, nome)
+        `)
+        .eq('produto_id', produtoId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as EstoqueItemWithRelations[];
+    },
+    enabled: !!produtoId,
   });
 }
 
@@ -147,6 +350,9 @@ export function useCreateEstoqueItem() {
           observacao_entrada: data.observacao_entrada || null,
           responsavel_entrada_id: user?.id,
           status: 'disponivel' as EstoqueStatus,
+          // Entrada sempre vai para Estoque Central (sem unidade/sala)
+          unidade_atual_id: null,
+          sala_id: null,
         })
         .select()
         .single();
@@ -159,7 +365,8 @@ export function useCreateEstoqueItem() {
         tipo: 'entrada' as MovimentacaoTipo,
         data_movimentacao: data.data_entrada,
         responsavel_id: user?.id,
-        observacao: data.observacao_entrada || 'Entrada no estoque',
+        observacao: data.observacao_entrada || 'Entrada no estoque central',
+        quantidade_movimentada: data.quantidade_total ?? 1,
       });
 
       return item;
@@ -167,6 +374,7 @@ export function useCreateEstoqueItem() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
       queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['produtos-resumo'] });
     },
     onError: (error: any) => {
       console.error('Error creating estoque item:', error);
@@ -180,6 +388,8 @@ export function useCreateEstoqueItem() {
   });
 }
 
+// ==================== SAÍDA PARA UNIDADE ====================
+
 export function useRegistrarSaida() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -188,42 +398,40 @@ export function useRegistrarSaida() {
     mutationFn: async ({
       itemId,
       unidadeDestinoId,
+      salaDestinoId,
       dataSaida,
       observacao,
-      localEspecifico,
       quantidadeSaida,
     }: {
       itemId: string;
       unidadeDestinoId: string;
+      salaDestinoId?: string;
       dataSaida: string;
       observacao?: string;
-      localEspecifico?: string;
       quantidadeSaida?: number;
     }) => {
-      // Buscar item atual
       const { data: itemAtual } = await supabase
         .from('estoque_itens')
-        .select('unidade_atual_id, controle_patrimonial, quantidade_total')
+        .select('unidade_atual_id, sala_id, controle_patrimonial, quantidade_total')
         .eq('id', itemId)
         .single();
 
       if (!itemAtual) throw new Error('Item não encontrado');
 
+      const qtdSaida = quantidadeSaida || 1;
+
       if (itemAtual.controle_patrimonial) {
-        // Item com patrimônio: comportamento atual
         const { error: updateError } = await supabase
           .from('estoque_itens')
           .update({
             status: 'em_uso' as EstoqueStatus,
             unidade_atual_id: unidadeDestinoId,
-            local_especifico: localEspecifico || null,
+            sala_id: salaDestinoId || null,
           })
           .eq('id', itemId);
 
         if (updateError) throw updateError;
       } else {
-        // Item sem patrimônio: subtrair quantidade
-        const qtdSaida = quantidadeSaida || 1;
         if (qtdSaida > (itemAtual.quantidade_total || 0)) {
           throw new Error('Quantidade de saída excede o disponível');
         }
@@ -235,40 +443,223 @@ export function useRegistrarSaida() {
             quantidade_total: novaQtd,
             quantidade: novaQtd,
             status: novaQtd === 0 ? ('em_uso' as EstoqueStatus) : ('disponivel' as EstoqueStatus),
-            unidade_atual_id: unidadeDestinoId,
-            local_especifico: localEspecifico || null,
+            unidade_atual_id: novaQtd === 0 ? unidadeDestinoId : itemAtual.unidade_atual_id,
+            sala_id: novaQtd === 0 ? (salaDestinoId || null) : itemAtual.sala_id,
           })
           .eq('id', itemId);
 
         if (updateError) throw updateError;
+
+        // Update/create lotacao
+        await upsertLotacao(itemId, unidadeDestinoId, qtdSaida, salaDestinoId);
       }
 
-      // Registrar movimentação
+      // Register movement
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
         item_id: itemId,
         tipo: 'saida' as MovimentacaoTipo,
         data_movimentacao: dataSaida,
         unidade_origem_id: itemAtual?.unidade_atual_id || null,
         unidade_destino_id: unidadeDestinoId,
+        sala_destino_id: salaDestinoId || null,
         responsavel_id: user?.id,
         observacao: observacao || 'Saída para unidade',
-        local_especifico: localEspecifico || null,
+        quantidade_movimentada: qtdSaida,
       });
 
       if (movError) throw movError;
-
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+      invalidateEstoqueQueries(queryClient);
       toast.success('Saída registrada com sucesso!');
     },
     onError: (error: any) => {
       console.error('Error registering saida:', error);
       toast.error(error.message || 'Erro ao registrar saída');
+    },
+  });
+}
+
+// ==================== TRANSFERÊNCIA ENTRE UNIDADES ====================
+
+export function useRegistrarTransferencia() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      unidadeOrigemId,
+      salaOrigemId,
+      unidadeDestinoId,
+      salaDestinoId,
+      dataTransferencia,
+      observacao,
+      quantidade,
+    }: {
+      itemId: string;
+      unidadeOrigemId: string;
+      salaOrigemId?: string;
+      unidadeDestinoId: string;
+      salaDestinoId?: string;
+      dataTransferencia: string;
+      observacao?: string;
+      quantidade?: number;
+    }) => {
+      const { data: itemAtual } = await supabase
+        .from('estoque_itens')
+        .select('controle_patrimonial, quantidade_total')
+        .eq('id', itemId)
+        .single();
+
+      if (!itemAtual) throw new Error('Item não encontrado');
+
+      const qtd = quantidade || 1;
+
+      if (itemAtual.controle_patrimonial) {
+        await supabase
+          .from('estoque_itens')
+          .update({
+            unidade_atual_id: unidadeDestinoId,
+            sala_id: salaDestinoId || null,
+          })
+          .eq('id', itemId);
+      } else {
+        // Update lotacoes: subtract from origin, add to destination
+        await decrementLotacao(itemId, unidadeOrigemId, qtd, salaOrigemId);
+        await upsertLotacao(itemId, unidadeDestinoId, qtd, salaDestinoId);
+      }
+
+      await supabase.from('estoque_movimentacoes').insert({
+        item_id: itemId,
+        tipo: 'transferencia' as MovimentacaoTipo,
+        data_movimentacao: dataTransferencia,
+        unidade_origem_id: unidadeOrigemId,
+        unidade_destino_id: unidadeDestinoId,
+        sala_origem_id: salaOrigemId || null,
+        sala_destino_id: salaDestinoId || null,
+        responsavel_id: user?.id,
+        observacao: observacao || 'Transferência entre unidades',
+        quantidade_movimentada: qtd,
+      });
+
+      return true;
+    },
+    onSuccess: () => {
+      invalidateEstoqueQueries(queryClient);
+      toast.success('Transferência registrada com sucesso!');
+    },
+    onError: (error: any) => {
+      console.error('Error registering transferencia:', error);
+      toast.error(error.message || 'Erro ao registrar transferência');
+    },
+  });
+}
+
+// ==================== MANUTENÇÃO ====================
+
+export function useRegistrarManutencao() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      dataManutencao,
+      observacao,
+      quantidade,
+    }: {
+      itemId: string;
+      dataManutencao: string;
+      observacao?: string;
+      quantidade?: number;
+    }) => {
+      const { data: itemAtual } = await supabase
+        .from('estoque_itens')
+        .select('controle_patrimonial, unidade_atual_id, sala_id')
+        .eq('id', itemId)
+        .single();
+
+      if (!itemAtual) throw new Error('Item não encontrado');
+
+      if (itemAtual.controle_patrimonial) {
+        await supabase
+          .from('estoque_itens')
+          .update({ status: 'manutencao' as EstoqueStatus })
+          .eq('id', itemId);
+      }
+
+      await supabase.from('estoque_movimentacoes').insert({
+        item_id: itemId,
+        tipo: 'manutencao' as MovimentacaoTipo,
+        data_movimentacao: dataManutencao,
+        unidade_origem_id: itemAtual.unidade_atual_id,
+        sala_origem_id: itemAtual.sala_id,
+        responsavel_id: user?.id,
+        observacao: observacao || 'Equipamento em manutenção',
+        quantidade_movimentada: quantidade || 1,
+      });
+
+      return true;
+    },
+    onSuccess: () => {
+      invalidateEstoqueQueries(queryClient);
+      toast.success('Manutenção registrada!');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao registrar manutenção');
+    },
+  });
+}
+
+export function useRetornarManutencao() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      dataRetorno,
+      observacao,
+    }: {
+      itemId: string;
+      dataRetorno: string;
+      observacao?: string;
+    }) => {
+      const { data: itemAtual } = await supabase
+        .from('estoque_itens')
+        .select('controle_patrimonial, unidade_atual_id, sala_id')
+        .eq('id', itemId)
+        .single();
+
+      if (!itemAtual) throw new Error('Item não encontrado');
+
+      if (itemAtual.controle_patrimonial) {
+        await supabase
+          .from('estoque_itens')
+          .update({ status: 'em_uso' as EstoqueStatus })
+          .eq('id', itemId);
+      }
+
+      await supabase.from('estoque_movimentacoes').insert({
+        item_id: itemId,
+        tipo: 'retorno_manutencao' as MovimentacaoTipo,
+        data_movimentacao: dataRetorno,
+        unidade_destino_id: itemAtual.unidade_atual_id,
+        sala_destino_id: itemAtual.sala_id,
+        responsavel_id: user?.id,
+        observacao: observacao || 'Retorno da manutenção',
+      });
+
+      return true;
+    },
+    onSuccess: () => {
+      invalidateEstoqueQueries(queryClient);
+      toast.success('Retorno de manutenção registrado!');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao registrar retorno');
     },
   });
 }
@@ -287,7 +678,6 @@ export function useConverterParaPatrimonial() {
       itemId: string;
       patrimonios: string[];
     }) => {
-      // Buscar item original
       const { data: itemOriginal, error: fetchError } = await supabase
         .from('estoque_itens')
         .select('*')
@@ -300,7 +690,6 @@ export function useConverterParaPatrimonial() {
         throw new Error('Quantidade de patrimônios excede a quantidade disponível');
       }
 
-      // Criar registros individuais
       for (const pat of patrimonios) {
         const { error } = await supabase.from('estoque_itens').insert({
           produto_id: itemOriginal.produto_id,
@@ -310,6 +699,7 @@ export function useConverterParaPatrimonial() {
           quantidade_total: 1,
           status: itemOriginal.status,
           unidade_atual_id: itemOriginal.unidade_atual_id,
+          sala_id: itemOriginal.sala_id,
           local_especifico: itemOriginal.local_especifico,
           data_entrada: itemOriginal.data_entrada,
           responsavel_entrada_id: user?.id,
@@ -323,10 +713,8 @@ export function useConverterParaPatrimonial() {
         }
       }
 
-      // Subtrair do original
       const novaQtd = (itemOriginal.quantidade_total || 0) - patrimonios.length;
       if (novaQtd <= 0) {
-        // Remover item original (marcar como baixa com quantidade 0)
         await supabase
           .from('estoque_itens')
           .update({ quantidade_total: 0, quantidade: 0, status: 'baixa' })
@@ -341,9 +729,7 @@ export function useConverterParaPatrimonial() {
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+      invalidateEstoqueQueries(queryClient);
       toast.success('Patrimônios adicionados com sucesso!');
     },
     onError: (error: any) => {
@@ -364,7 +750,9 @@ export function useEstoqueMovimentacoes(itemId?: string) {
         .select(`
           *,
           unidade_origem:unidades!estoque_movimentacoes_unidade_origem_id_fkey(id, nome),
-          unidade_destino:unidades!estoque_movimentacoes_unidade_destino_id_fkey(id, nome)
+          unidade_destino:unidades!estoque_movimentacoes_unidade_destino_id_fkey(id, nome),
+          sala_origem:salas!estoque_movimentacoes_sala_origem_id_fkey(id, nome),
+          sala_destino:salas!estoque_movimentacoes_sala_destino_id_fkey(id, nome)
         `)
         .order('data_movimentacao', { ascending: false });
 
@@ -375,7 +763,6 @@ export function useEstoqueMovimentacoes(itemId?: string) {
       const { data, error } = await query;
       if (error) throw error;
       
-      // Buscar responsáveis separadamente
       const movimentacoesComResponsavel = await Promise.all(
         (data || []).map(async (mov) => {
           let responsavel = null;
@@ -397,6 +784,56 @@ export function useEstoqueMovimentacoes(itemId?: string) {
   });
 }
 
+// Movimentações por produto (all items of a product)
+export function useEstoqueMovimentacoesPorProduto(produtoId: string) {
+  return useQuery({
+    queryKey: ['estoque-movimentacoes-produto', produtoId],
+    queryFn: async () => {
+      // Get item IDs for this product
+      const { data: itens } = await supabase
+        .from('estoque_itens')
+        .select('id')
+        .eq('produto_id', produtoId);
+
+      const itemIds = (itens || []).map(i => i.id);
+      if (itemIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('estoque_movimentacoes')
+        .select(`
+          *,
+          unidade_origem:unidades!estoque_movimentacoes_unidade_origem_id_fkey(id, nome),
+          unidade_destino:unidades!estoque_movimentacoes_unidade_destino_id_fkey(id, nome),
+          sala_origem:salas!estoque_movimentacoes_sala_origem_id_fkey(id, nome),
+          sala_destino:salas!estoque_movimentacoes_sala_destino_id_fkey(id, nome)
+        `)
+        .in('item_id', itemIds)
+        .order('data_movimentacao', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const movimentacoesComResponsavel = await Promise.all(
+        (data || []).map(async (mov) => {
+          let responsavel = null;
+          if (mov.responsavel_id) {
+            const { data: respData } = await supabase
+              .from('profiles')
+              .select('id, nome, email')
+              .eq('id', mov.responsavel_id)
+              .single();
+            responsavel = respData;
+          }
+          return { ...mov, responsavel } as EstoqueMovimentacaoWithRelations;
+        })
+      );
+
+      return movimentacoesComResponsavel;
+    },
+    enabled: !!produtoId,
+  });
+}
+
 // ==================== ESTATÍSTICAS ====================
 
 export function useEstoqueStats() {
@@ -409,12 +846,14 @@ export function useEstoqueStats() {
 
       if (error) throw error;
 
+      const getQty = (item: any) => item.controle_patrimonial ? 1 : (item.quantidade_total || 1);
+
       const stats = {
-        total: data.reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
-        totalQuantidade: data.reduce((acc, item) => acc + (item.quantidade_total || 1), 0),
-        disponivel: data.filter((i) => i.status === 'disponivel').reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
-        em_uso: data.filter((i) => i.status === 'em_uso').reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
-        baixa: data.filter((i) => i.status === 'baixa').reduce((acc, item) => acc + (item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 0),
+        total: data.reduce((acc, item) => acc + getQty(item), 0),
+        disponivel: data.filter((i) => i.status === 'disponivel').reduce((acc, item) => acc + getQty(item), 0),
+        em_uso: data.filter((i) => i.status === 'em_uso').reduce((acc, item) => acc + getQty(item), 0),
+        manutencao: data.filter((i) => i.status === 'manutencao').reduce((acc, item) => acc + getQty(item), 0),
+        baixa: data.filter((i) => i.status === 'baixa').reduce((acc, item) => acc + getQty(item), 0),
       };
 
       return stats;
@@ -459,7 +898,7 @@ export function useRegistrarBaixa() {
     }) => {
       const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('unidade_atual_id, status, controle_patrimonial, quantidade_total')
+        .select('unidade_atual_id, sala_id, status, controle_patrimonial, quantidade_total')
         .eq('id', itemId)
         .single();
 
@@ -470,18 +909,17 @@ export function useRegistrarBaixa() {
       }
 
       if (itemAtual?.controle_patrimonial) {
-        // Patrimonial: baixa individual (comportamento atual)
         const { error: updateError } = await supabase
           .from('estoque_itens')
           .update({
             status: 'baixa' as EstoqueStatus,
             unidade_atual_id: null,
+            sala_id: null,
           })
           .eq('id', itemId);
 
         if (updateError) throw updateError;
       } else {
-        // Não patrimonial: baixa por quantidade
         const qtdBaixa = quantidadeBaixa || (itemAtual?.quantidade_total || 1);
         if (qtdBaixa > (itemAtual?.quantidade_total || 0)) {
           throw new Error('Quantidade de baixa excede o disponível');
@@ -494,32 +932,30 @@ export function useRegistrarBaixa() {
             quantidade: novaQtd,
             status: novaQtd === 0 ? ('baixa' as EstoqueStatus) : ('disponivel' as EstoqueStatus),
             unidade_atual_id: novaQtd === 0 ? null : itemAtual?.unidade_atual_id,
+            sala_id: novaQtd === 0 ? null : itemAtual?.sala_id,
           })
           .eq('id', itemId);
 
         if (updateError) throw updateError;
       }
 
-      // Registrar movimentação
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
         item_id: itemId,
         tipo: 'baixa' as MovimentacaoTipo,
         data_movimentacao: dataBaixa,
         unidade_origem_id: itemAtual?.unidade_atual_id || null,
+        sala_origem_id: itemAtual?.sala_id || null,
         unidade_destino_id: null,
         responsavel_id: user?.id,
         observacao: motivo || 'Baixa de equipamento',
+        quantidade_movimentada: quantidadeBaixa || 1,
       });
 
       if (movError) throw movError;
-
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+      invalidateEstoqueQueries(queryClient);
       toast.success('Baixa registrada com sucesso!');
     },
     onError: (error: any) => {
@@ -540,7 +976,8 @@ export function useEstoqueItensParaBaixa(searchTerm?: string) {
         .select(`
           *,
           produto:produtos(id, nome, categoria),
-          unidade_atual:unidades(id, nome)
+          unidade_atual:unidades(id, nome),
+          sala:salas(id, nome)
         `)
         .in('status', ['disponivel', 'em_uso'])
         .order('created_at', { ascending: false });
@@ -562,4 +999,78 @@ export function useEstoqueItensParaBaixa(searchTerm?: string) {
       return filteredData;
     },
   });
+}
+
+// ==================== HELPERS ====================
+
+async function upsertLotacao(itemId: string, unidadeId: string, quantidade: number, salaId?: string) {
+  // Check if lotacao exists
+  let query = supabase
+    .from('estoque_lotacoes')
+    .select('id, quantidade')
+    .eq('item_id', itemId)
+    .eq('unidade_id', unidadeId);
+
+  if (salaId) {
+    query = query.eq('sala_id', salaId);
+  } else {
+    query = query.is('sala_id', null);
+  }
+
+  const { data: existing } = await query.maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from('estoque_lotacoes')
+      .update({ quantidade: (existing.quantidade || 0) + quantidade })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('estoque_lotacoes')
+      .insert({
+        item_id: itemId,
+        unidade_id: unidadeId,
+        sala_id: salaId || null,
+        quantidade,
+      });
+  }
+}
+
+async function decrementLotacao(itemId: string, unidadeId: string, quantidade: number, salaId?: string) {
+  let query = supabase
+    .from('estoque_lotacoes')
+    .select('id, quantidade')
+    .eq('item_id', itemId)
+    .eq('unidade_id', unidadeId);
+
+  if (salaId) {
+    query = query.eq('sala_id', salaId);
+  } else {
+    query = query.is('sala_id', null);
+  }
+
+  const { data: existing } = await query.maybeSingle();
+
+  if (existing) {
+    const novaQtd = (existing.quantidade || 0) - quantidade;
+    if (novaQtd <= 0) {
+      await supabase.from('estoque_lotacoes').delete().eq('id', existing.id);
+    } else {
+      await supabase
+        .from('estoque_lotacoes')
+        .update({ quantidade: novaQtd })
+        .eq('id', existing.id);
+    }
+  }
+}
+
+function invalidateEstoqueQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
+  queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
+  queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes'] });
+  queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['produtos-resumo'] });
+  queryClient.invalidateQueries({ queryKey: ['produto-distribuicao'] });
+  queryClient.invalidateQueries({ queryKey: ['estoque-itens-produto'] });
+  queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes-produto'] });
 }

@@ -22,6 +22,8 @@ import EstoqueSaida from "./pages/admin/EstoqueSaida";
 import EstoqueBaixa from "./pages/admin/EstoqueBaixa";
 import EstoqueDetalhe from "./pages/admin/EstoqueDetalhe";
 import EstoqueRelatorios from "./pages/admin/EstoqueRelatorios";
+import EstoqueTransferencia from "./pages/admin/EstoqueTransferencia";
+import EstoqueManutencao from "./pages/admin/EstoqueManutencao";
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
@@ -100,6 +102,9 @@ function AppRoutes() {
       <Route path="/admin/estoque/saida" element={<ProtectedRoute adminOnly><ErrorBoundary fallbackMessage="Erro ao carregar página de saída"><EstoqueSaida /></ErrorBoundary></ProtectedRoute>} />
       <Route path="/admin/estoque/baixa" element={<ProtectedRoute adminOnly><EstoqueBaixa /></ProtectedRoute>} />
       <Route path="/admin/estoque/relatorios" element={<ProtectedRoute adminOnly><EstoqueRelatorios /></ProtectedRoute>} />
+      <Route path="/admin/estoque/transferencia" element={<ProtectedRoute adminOnly><EstoqueTransferencia /></ProtectedRoute>} />
+      <Route path="/admin/estoque/manutencao" element={<ProtectedRoute adminOnly><EstoqueManutencao /></ProtectedRoute>} />
+      <Route path="/admin/estoque/produto/:id" element={<ProtectedRoute adminOnly><EstoqueDetalhe /></ProtectedRoute>} />
       <Route path="/admin/estoque/:id" element={<ProtectedRoute adminOnly><EstoqueDetalhe /></ProtectedRoute>} />
       
       <Route path="*" element={<NotFound />} />

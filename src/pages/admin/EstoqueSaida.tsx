@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { useEstoqueItens, useRegistrarSaida } from '@/hooks/useEstoque';
+import { useEstoqueItens, useRegistrarSaida, useSalas } from '@/hooks/useEstoque';
 import { useUnidades } from '@/hooks/useUnidades';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,35 +31,24 @@ import { ptBR } from 'date-fns/locale';
 
 export default function EstoqueSaida() {
   const navigate = useNavigate();
-  const { data: itensDisponiveis, isLoading: loadingItens, error: errorItens } = useEstoqueItens({ status: 'disponivel' });
-  const { data: unidades, isLoading: loadingUnidades, error: errorUnidades } = useUnidades();
+  const { data: itensDisponiveis, isLoading: loadingItens } = useEstoqueItens({ status: 'disponivel' });
+  const { data: unidades, isLoading: loadingUnidades } = useUnidades();
   const registrarSaida = useRegistrarSaida();
-
-  // Debug logging
-  React.useEffect(() => {
-    console.log('[EstoqueSaida] Rendered', { 
-      itensDisponiveis: itensDisponiveis?.length, 
-      loadingItens, 
-      errorItens,
-      unidades: unidades?.length, 
-      loadingUnidades,
-      errorUnidades 
-    });
-  }, [itensDisponiveis, loadingItens, errorItens, unidades, loadingUnidades, errorUnidades]);
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [selectedItemId, setSelectedItemId] = React.useState('');
   const [unidadeDestinoId, setUnidadeDestinoId] = React.useState('');
+  const [salaDestinoId, setSalaDestinoId] = React.useState('');
   const [dataSaida, setDataSaida] = React.useState<Date>(new Date());
   const [observacao, setObservacao] = React.useState('');
-  const [localEspecifico, setLocalEspecifico] = React.useState('');
   const [quantidadeSaida, setQuantidadeSaida] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const { data: salas, isLoading: loadingSalas } = useSalas(unidadeDestinoId || undefined);
 
   const itensFiltrados = React.useMemo(() => {
     if (!itensDisponiveis) return [];
     if (!searchTerm) return itensDisponiveis;
-
     const termo = searchTerm.toLowerCase();
     return itensDisponiveis.filter(
       (item) =>
@@ -75,9 +64,11 @@ export default function EstoqueSaida() {
     e.preventDefault();
 
     if (!selectedItemId) return;
-    if (!unidadeDestinoId) return;
+    if (!unidadeDestinoId) {
+      toast.error('Selecione a unidade de destino');
+      return;
+    }
 
-    // Validar quantidade para itens sem patrimônio
     if (selectedItem && !isPatrimonial) {
       const qtd = parseInt(quantidadeSaida) || 0;
       if (qtd < 1) {
@@ -96,15 +87,15 @@ export default function EstoqueSaida() {
       await registrarSaida.mutateAsync({
         itemId: selectedItemId,
         unidadeDestinoId,
+        salaDestinoId: salaDestinoId || undefined,
         dataSaida: dataSaida.toISOString(),
         observacao: observacao || undefined,
-        localEspecifico: localEspecifico || undefined,
         quantidadeSaida: isPatrimonial ? undefined : parseInt(quantidadeSaida) || 1,
       });
 
       navigate('/admin/estoque');
     } catch {
-      // Erro já tratado no hook
+      // Error handled in hook
     } finally {
       setIsSubmitting(false);
     }
@@ -135,7 +126,7 @@ export default function EstoqueSaida() {
             <Card>
               <CardHeader>
                 <CardTitle>Dados da Saída</CardTitle>
-                <CardDescription>Selecione o item e a unidade de destino</CardDescription>
+                <CardDescription>Selecione o item, unidade e sala de destino</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Busca de Item */}
@@ -146,7 +137,7 @@ export default function EstoqueSaida() {
                     <Input
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Buscar por nome ou número de patrimônio..."
+                      placeholder="Buscar por nome ou patrimônio..."
                       className="pl-10"
                     />
                   </div>
@@ -161,19 +152,14 @@ export default function EstoqueSaida() {
                     </div>
                   ) : itensFiltrados.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      {searchTerm
-                        ? 'Nenhum item encontrado com esses termos.'
-                        : 'Não há itens disponíveis no estoque.'}
+                      {searchTerm ? 'Nenhum item encontrado.' : 'Não há itens disponíveis no estoque.'}
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
                       {itensFiltrados.map((item) => (
                         <div
                           key={item.id}
-                          onClick={() => {
-                            setSelectedItemId(item.id);
-                            setQuantidadeSaida('');
-                          }}
+                          onClick={() => { setSelectedItemId(item.id); setQuantidadeSaida(''); }}
                           className={cn(
                             'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors border',
                             selectedItemId === item.id
@@ -206,25 +192,7 @@ export default function EstoqueSaida() {
                   )}
                 </div>
 
-                {/* Item Selecionado */}
-                {selectedItem && (
-                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <p className="text-sm text-muted-foreground mb-1">Item selecionado:</p>
-                    <p className="font-semibold">{selectedItem.produto?.nome}</p>
-                    {selectedItem.controle_patrimonial && selectedItem.numero_patrimonio && (
-                      <p className="text-sm text-muted-foreground">
-                        Patrimônio: {selectedItem.numero_patrimonio}
-                      </p>
-                    )}
-                    {!selectedItem.controle_patrimonial && (
-                      <p className="text-sm text-muted-foreground">
-                        Quantidade disponível: {selectedItem.quantidade_total}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Quantidade a retirar (apenas para itens sem patrimônio) */}
+                {/* Quantidade (non-patrimonial) */}
                 {selectedItem && !isPatrimonial && (
                   <div className="space-y-2">
                     <Label htmlFor="qtd-saida">Quantidade a Retirar *</Label>
@@ -234,10 +202,7 @@ export default function EstoqueSaida() {
                       inputMode="numeric"
                       pattern="[0-9]*"
                       value={quantidadeSaida}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '');
-                        setQuantidadeSaida(val);
-                      }}
+                      onChange={(e) => setQuantidadeSaida(e.target.value.replace(/\D/g, ''))}
                       placeholder={`Máximo: ${selectedItem.quantidade_total}`}
                       className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
@@ -250,9 +215,9 @@ export default function EstoqueSaida() {
                 {/* Unidade de Destino */}
                 <div className="space-y-2">
                   <Label>Unidade de Destino *</Label>
-                  <Select value={unidadeDestinoId} onValueChange={setUnidadeDestinoId}>
+                  <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione a unidade de destino" />
+                      <SelectValue placeholder="Selecione a unidade" />
                     </SelectTrigger>
                     <SelectContent>
                       {loadingUnidades ? (
@@ -267,30 +232,41 @@ export default function EstoqueSaida() {
                           </SelectItem>
                         ))
                       ) : (
-                        <div className="p-2 text-center text-muted-foreground">
-                          Nenhuma unidade cadastrada
-                        </div>
+                        <div className="p-2 text-center text-muted-foreground">Nenhuma unidade cadastrada</div>
                       )}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Local Específico */}
-                <div className="space-y-2">
-                  <Label htmlFor="local-especifico" className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Local Específico
-                  </Label>
-                  <Input
-                    id="local-especifico"
-                    value={localEspecifico}
-                    onChange={(e) => setLocalEspecifico(e.target.value)}
-                    placeholder="Ex: Sala de Vacina, Consultório 2..."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Informe o local detalhado dentro da unidade (opcional)
-                  </p>
-                </div>
+                {/* Sala de Destino */}
+                {unidadeDestinoId && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Sala de Destino
+                    </Label>
+                    <Select value={salaDestinoId} onValueChange={setSalaDestinoId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a sala (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingSalas ? (
+                          <div className="p-2 text-center text-muted-foreground">Carregando...</div>
+                        ) : salas && salas.length > 0 ? (
+                          salas.map((sala) => (
+                            <SelectItem key={sala.id} value={sala.id}>
+                              {sala.nome}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-center text-muted-foreground">
+                            Nenhuma sala cadastrada para esta unidade
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Data de Saída */}
                 <div className="space-y-2">
@@ -299,69 +275,40 @@ export default function EstoqueSaida() {
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !dataSaida && 'text-muted-foreground'
-                        )}
+                        className={cn('w-full justify-start text-left font-normal', !dataSaida && 'text-muted-foreground')}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dataSaida ? (
-                          format(dataSaida, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                        ) : (
-                          <span>Selecione a data</span>
-                        )}
+                        {dataSaida ? format(dataSaida, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'Selecione a data'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dataSaida}
-                        onSelect={(date) => date && setDataSaida(date)}
-                        locale={ptBR}
-                        initialFocus
-                      />
+                      <Calendar mode="single" selected={dataSaida} onSelect={(date) => date && setDataSaida(date)} locale={ptBR} initialFocus />
                     </PopoverContent>
                   </Popover>
                 </div>
 
-                {/* Descrição da Saída */}
+                {/* Descrição */}
                 <div className="space-y-2">
                   <Label htmlFor="observacao">Descrição da Saída</Label>
                   <Textarea
                     id="observacao"
                     value={observacao}
                     onChange={(e) => setObservacao(e.target.value)}
-                    placeholder="Ex: Enviado para sala de vacina para uso no sistema e-SUS..."
+                    placeholder="Ex: Enviado para sala de vacina..."
                     rows={3}
                   />
                 </div>
 
                 {/* Botões */}
                 <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate('/admin/estoque')}
-                    disabled={isSubmitting}
-                    className="flex-1"
-                  >
+                  <Button type="button" variant="outline" onClick={() => navigate('/admin/estoque')} disabled={isSubmitting} className="flex-1">
                     Cancelar
                   </Button>
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting || !selectedItemId || !unidadeDestinoId}
-                    className="flex-1"
-                  >
+                  <Button type="submit" disabled={isSubmitting || !selectedItemId || !unidadeDestinoId} className="flex-1">
                     {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Registrando...
-                      </>
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Registrando...</>
                     ) : (
-                      <>
-                        <ArrowUpFromLine className="w-4 h-4 mr-2" />
-                        Registrar Saída
-                      </>
+                      <><ArrowUpFromLine className="w-4 h-4 mr-2" />Registrar Saída</>
                     )}
                   </Button>
                 </div>
