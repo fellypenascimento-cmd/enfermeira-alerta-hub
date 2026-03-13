@@ -286,7 +286,7 @@ export default function Usuarios() {
         // Create new user via Edge Function
         const response = await supabase.functions.invoke('create-user', {
           body: {
-            email: formData.email,
+            username: formData.username.toLowerCase().trim(),
             password: formData.senha,
             nome: formData.nome,
             unidade_id: formData.unidade_id || undefined,
