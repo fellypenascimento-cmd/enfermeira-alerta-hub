@@ -704,7 +704,7 @@ export default function Usuarios() {
                       <ArrowUpDown className="h-4 w-4" />
                     </div>
                   </TableHead>
-                  <TableHead>E-mail</TableHead>
+                  <TableHead>Usuário</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSort('unidade')}
