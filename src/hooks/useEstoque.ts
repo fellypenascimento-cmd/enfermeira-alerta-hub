@@ -13,6 +13,24 @@ import type {
 } from '@/types/estoque';
 import { toast } from 'sonner';
 
+// ==================== HELPER: CHECK IF UNIT IS CPD ====================
+// Equipamento no CPD é sempre "disponivel" (centro de redistribuição)
+async function getStatusForDestino(unidadeDestinoId: string | null): Promise<EstoqueStatus> {
+  if (!unidadeDestinoId) return 'disponivel'; // Estoque central (sem unidade)
+  
+  const { data } = await supabase
+    .from('unidades')
+    .select('nome')
+    .eq('id', unidadeDestinoId)
+    .single();
+  
+  const nome = data?.nome?.trim().toUpperCase() || '';
+  if (nome === 'CPD' || nome.includes('CPD')) {
+    return 'disponivel';
+  }
+  return 'em_uso';
+}
+
 // ==================== PRODUTOS ====================
 
 export function useProdutos() {
