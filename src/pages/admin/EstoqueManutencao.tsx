@@ -38,7 +38,7 @@ export default function EstoqueManutencao() {
   const { data: itensEmUso, isLoading: loadingEmUso } = useEstoqueItens({ status: 'em_uso' });
   const { data: itensDisponiveis } = useEstoqueItens({ status: 'disponivel' });
   const { data: itensManutencao, isLoading: loadingManut } = useEstoqueItens({ status: 'manutencao' as any });
-  const { data: unidades } = useUnidades();
+  const { data: unidades, isLoading: loadingUnidades } = useUnidades();
   const registrarManutencao = useRegistrarManutencao();
   const retornarManutencao = useRetornarManutencao();
 
