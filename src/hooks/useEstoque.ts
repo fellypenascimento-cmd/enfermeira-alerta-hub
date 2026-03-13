@@ -110,14 +110,12 @@ export function useProdutosResumo() {
   return useQuery({
     queryKey: ['produtos-resumo'],
     queryFn: async () => {
-      // Get all estoque items with product info
       const { data, error } = await supabase
         .from('estoque_itens')
         .select('produto_id, status, quantidade_total, controle_patrimonial, produto:produtos(id, nome, categoria)');
 
       if (error) throw error;
 
-      // Aggregate by product
       const resumoMap = new Map<string, ProdutoResumo>();
 
       for (const item of data || []) {
@@ -164,38 +162,32 @@ export function useProdutosResumo() {
 }
 
 // ==================== DISTRIBUIÇÃO POR PRODUTO ====================
+// Lê diretamente de estoque_itens (estado atual), NÃO de lotacoes ou histórico
 
 export function useProdutoDistribuicao(produtoId: string) {
   return useQuery({
     queryKey: ['produto-distribuicao', produtoId],
     queryFn: async () => {
-      // Get lotacoes for items of this product
-      const { data: itens, error: itensError } = await supabase
+      const { data: itens, error } = await supabase
         .from('estoque_itens')
-        .select('id')
-        .eq('produto_id', produtoId);
+        .select('id, quantidade_total, controle_patrimonial, status, unidade_atual_id, sala_id, unidade_atual:unidades(id, nome), sala:salas(id, nome)')
+        .eq('produto_id', produtoId)
+        .in('status', ['em_uso', 'manutencao']); // Somente itens alocados
 
-      if (itensError) throw itensError;
-
-      const itemIds = (itens || []).map(i => i.id);
-      if (itemIds.length === 0) return { porUnidade: [], porSala: [] };
-
-      const { data: lotacoes, error: lotError } = await supabase
-        .from('estoque_lotacoes')
-        .select('*, unidade:unidades(id, nome), sala:salas(id, nome)')
-        .in('item_id', itemIds);
-
-      if (lotError) throw lotError;
+      if (error) throw error;
 
       // Aggregate by unidade
       const unidadeMap = new Map<string, { unidade_id: string; unidade_nome: string; quantidade: number }>();
       const salaMap = new Map<string, { sala_id: string; sala_nome: string; unidade_id: string; unidade_nome: string; quantidade: number }>();
 
-      for (const lot of lotacoes || []) {
-        const unidade = lot.unidade as any;
-        const sala = lot.sala as any;
-        const unidadeId = lot.unidade_id;
+      for (const item of itens || []) {
+        if (!item.unidade_atual_id) continue;
         
+        const unidade = item.unidade_atual as any;
+        const sala = item.sala as any;
+        const qty = item.controle_patrimonial ? 1 : (item.quantidade_total || 0);
+        const unidadeId = item.unidade_atual_id;
+
         // By unidade
         if (!unidadeMap.has(unidadeId)) {
           unidadeMap.set(unidadeId, {
@@ -204,21 +196,21 @@ export function useProdutoDistribuicao(produtoId: string) {
             quantidade: 0,
           });
         }
-        unidadeMap.get(unidadeId)!.quantidade += lot.quantidade || 0;
+        unidadeMap.get(unidadeId)!.quantidade += qty;
 
         // By sala
-        if (sala) {
-          const salaKey = lot.sala_id || 'sem-sala';
+        if (sala && item.sala_id) {
+          const salaKey = `${unidadeId}-${item.sala_id}`;
           if (!salaMap.has(salaKey)) {
             salaMap.set(salaKey, {
-              sala_id: sala.id,
+              sala_id: item.sala_id,
               sala_nome: sala.nome,
               unidade_id: unidadeId,
               unidade_nome: unidade?.nome || 'Desconhecida',
               quantidade: 0,
             });
           }
-          salaMap.get(salaKey)!.quantidade += lot.quantidade || 0;
+          salaMap.get(salaKey)!.quantidade += qty;
         }
       }
 
@@ -372,9 +364,7 @@ export function useCreateEstoqueItem() {
       return item;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
-      queryClient.invalidateQueries({ queryKey: ['estoque-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['produtos-resumo'] });
+      invalidateEstoqueQueries(queryClient);
     },
     onError: (error: any) => {
       console.error('Error creating estoque item:', error);
@@ -389,6 +379,8 @@ export function useCreateEstoqueItem() {
 }
 
 // ==================== SAÍDA PARA UNIDADE ====================
+// REGRA: Sempre atualizar o estado atual diretamente na tabela estoque_itens.
+// Para itens por quantidade: se saída parcial, DIVIDE o registro em dois.
 
 export function useRegistrarSaida() {
   const queryClient = useQueryClient();
@@ -410,17 +402,19 @@ export function useRegistrarSaida() {
       observacao?: string;
       quantidadeSaida?: number;
     }) => {
-      const { data: itemAtual } = await supabase
+      const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('unidade_atual_id, sala_id, controle_patrimonial, quantidade_total')
+        .select('*')
         .eq('id', itemId)
         .single();
 
-      if (!itemAtual) throw new Error('Item não encontrado');
+      if (fetchError || !itemAtual) throw new Error('Item não encontrado');
 
       const qtdSaida = quantidadeSaida || 1;
+      let movItemId = itemId;
 
       if (itemAtual.controle_patrimonial) {
+        // Item patrimonial: atualizar estado diretamente
         const { error: updateError } = await supabase
           .from('estoque_itens')
           .update({
@@ -432,34 +426,66 @@ export function useRegistrarSaida() {
 
         if (updateError) throw updateError;
       } else {
+        // Item por quantidade
         if (qtdSaida > (itemAtual.quantidade_total || 0)) {
           throw new Error('Quantidade de saída excede o disponível');
         }
 
-        const novaQtd = (itemAtual.quantidade_total || 0) - qtdSaida;
-        const { error: updateError } = await supabase
-          .from('estoque_itens')
-          .update({
-            quantidade_total: novaQtd,
-            quantidade: novaQtd,
-            status: novaQtd === 0 ? ('em_uso' as EstoqueStatus) : ('disponivel' as EstoqueStatus),
-            unidade_atual_id: novaQtd === 0 ? unidadeDestinoId : itemAtual.unidade_atual_id,
-            sala_id: novaQtd === 0 ? (salaDestinoId || null) : itemAtual.sala_id,
-          })
-          .eq('id', itemId);
+        if (qtdSaida === (itemAtual.quantidade_total || 0)) {
+          // Saída total: atualizar o registro existente
+          const { error: updateError } = await supabase
+            .from('estoque_itens')
+            .update({
+              status: 'em_uso' as EstoqueStatus,
+              unidade_atual_id: unidadeDestinoId,
+              sala_id: salaDestinoId || null,
+            })
+            .eq('id', itemId);
 
-        if (updateError) throw updateError;
+          if (updateError) throw updateError;
+        } else {
+          // Saída parcial: reduzir origem e criar NOVO registro no destino
+          const novaQtdOrigem = (itemAtual.quantidade_total || 0) - qtdSaida;
+          
+          const { error: updateError } = await supabase
+            .from('estoque_itens')
+            .update({
+              quantidade_total: novaQtdOrigem,
+              quantidade: novaQtdOrigem,
+            })
+            .eq('id', itemId);
 
-        // Update/create lotacao
-        await upsertLotacao(itemId, unidadeDestinoId, qtdSaida, salaDestinoId);
+          if (updateError) throw updateError;
+
+          // Criar novo registro no destino
+          const { data: novoItem, error: insertError } = await supabase
+            .from('estoque_itens')
+            .insert({
+              produto_id: itemAtual.produto_id,
+              quantidade: qtdSaida,
+              quantidade_total: qtdSaida,
+              controle_patrimonial: false,
+              status: 'em_uso' as EstoqueStatus,
+              unidade_atual_id: unidadeDestinoId,
+              sala_id: salaDestinoId || null,
+              data_entrada: itemAtual.data_entrada,
+              responsavel_entrada_id: user?.id,
+              observacao_entrada: `Saída parcial do lote ${itemId}`,
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          movItemId = novoItem.id;
+        }
       }
 
-      // Register movement
+      // Registrar histórico
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
-        item_id: itemId,
+        item_id: movItemId,
         tipo: 'saida' as MovimentacaoTipo,
         data_movimentacao: dataSaida,
-        unidade_origem_id: itemAtual?.unidade_atual_id || null,
+        unidade_origem_id: itemAtual.unidade_atual_id || null,
         unidade_destino_id: unidadeDestinoId,
         sala_destino_id: salaDestinoId || null,
         responsavel_id: user?.id,
@@ -482,6 +508,7 @@ export function useRegistrarSaida() {
 }
 
 // ==================== TRANSFERÊNCIA ENTRE UNIDADES ====================
+// REGRA: Atualizar estado diretamente. Para qty parcial, dividir registro.
 
 export function useRegistrarTransferencia() {
   const queryClient = useQueryClient();
@@ -507,32 +534,79 @@ export function useRegistrarTransferencia() {
       observacao?: string;
       quantidade?: number;
     }) => {
-      const { data: itemAtual } = await supabase
+      const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('controle_patrimonial, quantidade_total')
+        .select('*')
         .eq('id', itemId)
         .single();
 
-      if (!itemAtual) throw new Error('Item não encontrado');
+      if (fetchError || !itemAtual) throw new Error('Item não encontrado');
 
       const qtd = quantidade || 1;
+      let movItemId = itemId;
 
       if (itemAtual.controle_patrimonial) {
-        await supabase
+        // Patrimonial: mover diretamente
+        const { error } = await supabase
           .from('estoque_itens')
           .update({
             unidade_atual_id: unidadeDestinoId,
             sala_id: salaDestinoId || null,
           })
           .eq('id', itemId);
+        if (error) throw error;
       } else {
-        // Update lotacoes: subtract from origin, add to destination
-        await decrementLotacao(itemId, unidadeOrigemId, qtd, salaOrigemId);
-        await upsertLotacao(itemId, unidadeDestinoId, qtd, salaDestinoId);
+        if (qtd > (itemAtual.quantidade_total || 0)) {
+          throw new Error('Quantidade excede o disponível neste item');
+        }
+
+        if (qtd === (itemAtual.quantidade_total || 0)) {
+          // Transferência total
+          const { error } = await supabase
+            .from('estoque_itens')
+            .update({
+              unidade_atual_id: unidadeDestinoId,
+              sala_id: salaDestinoId || null,
+            })
+            .eq('id', itemId);
+          if (error) throw error;
+        } else {
+          // Transferência parcial: dividir
+          const novaQtdOrigem = (itemAtual.quantidade_total || 0) - qtd;
+
+          const { error: updateError } = await supabase
+            .from('estoque_itens')
+            .update({
+              quantidade_total: novaQtdOrigem,
+              quantidade: novaQtdOrigem,
+            })
+            .eq('id', itemId);
+          if (updateError) throw updateError;
+
+          const { data: novoItem, error: insertError } = await supabase
+            .from('estoque_itens')
+            .insert({
+              produto_id: itemAtual.produto_id,
+              quantidade: qtd,
+              quantidade_total: qtd,
+              controle_patrimonial: false,
+              status: 'em_uso' as EstoqueStatus,
+              unidade_atual_id: unidadeDestinoId,
+              sala_id: salaDestinoId || null,
+              data_entrada: itemAtual.data_entrada,
+              responsavel_entrada_id: user?.id,
+              observacao_entrada: `Transferência parcial do item ${itemId}`,
+            })
+            .select()
+            .single();
+          if (insertError) throw insertError;
+          movItemId = novoItem.id;
+        }
       }
 
+      // Registrar histórico
       await supabase.from('estoque_movimentacoes').insert({
-        item_id: itemId,
+        item_id: movItemId,
         tipo: 'transferencia' as MovimentacaoTipo,
         data_movimentacao: dataTransferencia,
         unidade_origem_id: unidadeOrigemId,
@@ -557,7 +631,107 @@ export function useRegistrarTransferencia() {
   });
 }
 
+// ==================== RETORNO AO ESTOQUE CENTRAL ====================
+
+export function useRegistrarRetorno() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      dataRetorno,
+      observacao,
+      quantidade,
+    }: {
+      itemId: string;
+      dataRetorno: string;
+      observacao?: string;
+      quantidade?: number;
+    }) => {
+      const { data: itemAtual, error: fetchError } = await supabase
+        .from('estoque_itens')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+
+      if (fetchError || !itemAtual) throw new Error('Item não encontrado');
+
+      const qtd = quantidade || (itemAtual.quantidade_total || 1);
+      let movItemId = itemId;
+
+      if (itemAtual.controle_patrimonial || qtd === (itemAtual.quantidade_total || 0)) {
+        // Retorno total: limpar localização, voltar para disponível
+        const { error } = await supabase
+          .from('estoque_itens')
+          .update({
+            status: 'disponivel' as EstoqueStatus,
+            unidade_atual_id: null,
+            sala_id: null,
+          })
+          .eq('id', itemId);
+        if (error) throw error;
+      } else {
+        // Retorno parcial: reduzir no destino, criar novo disponível no central
+        const novaQtd = (itemAtual.quantidade_total || 0) - qtd;
+
+        const { error: updateError } = await supabase
+          .from('estoque_itens')
+          .update({
+            quantidade_total: novaQtd,
+            quantidade: novaQtd,
+          })
+          .eq('id', itemId);
+        if (updateError) throw updateError;
+
+        const { data: novoItem, error: insertError } = await supabase
+          .from('estoque_itens')
+          .insert({
+            produto_id: itemAtual.produto_id,
+            quantidade: qtd,
+            quantidade_total: qtd,
+            controle_patrimonial: false,
+            status: 'disponivel' as EstoqueStatus,
+            unidade_atual_id: null,
+            sala_id: null,
+            data_entrada: itemAtual.data_entrada,
+            responsavel_entrada_id: user?.id,
+            observacao_entrada: `Retorno ao estoque central do item ${itemId}`,
+          })
+          .select()
+          .single();
+        if (insertError) throw insertError;
+        movItemId = novoItem.id;
+      }
+
+      // Registrar histórico
+      await supabase.from('estoque_movimentacoes').insert({
+        item_id: movItemId,
+        tipo: 'devolucao' as MovimentacaoTipo,
+        data_movimentacao: dataRetorno,
+        unidade_origem_id: itemAtual.unidade_atual_id,
+        sala_origem_id: itemAtual.sala_id,
+        unidade_destino_id: null,
+        responsavel_id: user?.id,
+        observacao: observacao || 'Retorno ao estoque central',
+        quantidade_movimentada: qtd,
+      });
+
+      return true;
+    },
+    onSuccess: () => {
+      invalidateEstoqueQueries(queryClient);
+      toast.success('Retorno registrado com sucesso!');
+    },
+    onError: (error: any) => {
+      console.error('Error registering retorno:', error);
+      toast.error(error.message || 'Erro ao registrar retorno');
+    },
+  });
+}
+
 // ==================== MANUTENÇÃO ====================
+// REGRA: Atualizar estado diretamente. Limpar unidade/sala (equipamento sai para reparo).
 
 export function useRegistrarManutencao() {
   const queryClient = useQueryClient();
@@ -575,30 +749,71 @@ export function useRegistrarManutencao() {
       observacao?: string;
       quantidade?: number;
     }) => {
-      const { data: itemAtual } = await supabase
+      const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('controle_patrimonial, unidade_atual_id, sala_id')
+        .select('*')
         .eq('id', itemId)
         .single();
 
-      if (!itemAtual) throw new Error('Item não encontrado');
+      if (fetchError || !itemAtual) throw new Error('Item não encontrado');
 
-      if (itemAtual.controle_patrimonial) {
-        await supabase
+      const qtd = quantidade || (itemAtual.quantidade_total || 1);
+      let movItemId = itemId;
+
+      if (itemAtual.controle_patrimonial || qtd === (itemAtual.quantidade_total || 0)) {
+        // Manutenção total: atualizar estado
+        const { error } = await supabase
           .from('estoque_itens')
-          .update({ status: 'manutencao' as EstoqueStatus })
+          .update({
+            status: 'manutencao' as EstoqueStatus,
+            unidade_atual_id: null,
+            sala_id: null,
+          })
           .eq('id', itemId);
+        if (error) throw error;
+      } else {
+        // Manutenção parcial: dividir
+        const novaQtd = (itemAtual.quantidade_total || 0) - qtd;
+
+        const { error: updateError } = await supabase
+          .from('estoque_itens')
+          .update({
+            quantidade_total: novaQtd,
+            quantidade: novaQtd,
+          })
+          .eq('id', itemId);
+        if (updateError) throw updateError;
+
+        const { data: novoItem, error: insertError } = await supabase
+          .from('estoque_itens')
+          .insert({
+            produto_id: itemAtual.produto_id,
+            quantidade: qtd,
+            quantidade_total: qtd,
+            controle_patrimonial: false,
+            status: 'manutencao' as EstoqueStatus,
+            unidade_atual_id: null,
+            sala_id: null,
+            data_entrada: itemAtual.data_entrada,
+            responsavel_entrada_id: user?.id,
+            observacao_entrada: `Enviado para manutenção do item ${itemId}`,
+          })
+          .select()
+          .single();
+        if (insertError) throw insertError;
+        movItemId = novoItem.id;
       }
 
+      // Registrar histórico
       await supabase.from('estoque_movimentacoes').insert({
-        item_id: itemId,
+        item_id: movItemId,
         tipo: 'manutencao' as MovimentacaoTipo,
         data_movimentacao: dataManutencao,
         unidade_origem_id: itemAtual.unidade_atual_id,
         sala_origem_id: itemAtual.sala_id,
         responsavel_id: user?.id,
         observacao: observacao || 'Equipamento em manutenção',
-        quantidade_movimentada: quantidade || 1,
+        quantidade_movimentada: qtd,
       });
 
       return true;
@@ -613,6 +828,7 @@ export function useRegistrarManutencao() {
   });
 }
 
+// Retorno da manutenção: equipamento volta para uso ou estoque central
 export function useRetornarManutencao() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -622,34 +838,60 @@ export function useRetornarManutencao() {
       itemId,
       dataRetorno,
       observacao,
+      destino,
+      unidadeDestinoId,
+      salaDestinoId,
     }: {
       itemId: string;
       dataRetorno: string;
       observacao?: string;
+      destino: 'estoque_central' | 'unidade';
+      unidadeDestinoId?: string;
+      salaDestinoId?: string;
     }) => {
-      const { data: itemAtual } = await supabase
+      const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('controle_patrimonial, unidade_atual_id, sala_id')
+        .select('*')
         .eq('id', itemId)
         .single();
 
-      if (!itemAtual) throw new Error('Item não encontrado');
+      if (fetchError || !itemAtual) throw new Error('Item não encontrado');
 
-      if (itemAtual.controle_patrimonial) {
-        await supabase
+      if (destino === 'estoque_central') {
+        // Volta para o estoque central como disponível
+        const { error } = await supabase
           .from('estoque_itens')
-          .update({ status: 'em_uso' as EstoqueStatus })
+          .update({
+            status: 'disponivel' as EstoqueStatus,
+            unidade_atual_id: null,
+            sala_id: null,
+          })
           .eq('id', itemId);
+        if (error) throw error;
+      } else {
+        // Volta para unidade específica
+        if (!unidadeDestinoId) throw new Error('Informe a unidade de destino');
+        const { error } = await supabase
+          .from('estoque_itens')
+          .update({
+            status: 'em_uso' as EstoqueStatus,
+            unidade_atual_id: unidadeDestinoId,
+            sala_id: salaDestinoId || null,
+          })
+          .eq('id', itemId);
+        if (error) throw error;
       }
 
+      // Registrar histórico
       await supabase.from('estoque_movimentacoes').insert({
         item_id: itemId,
         tipo: 'retorno_manutencao' as MovimentacaoTipo,
         data_movimentacao: dataRetorno,
-        unidade_destino_id: itemAtual.unidade_atual_id,
-        sala_destino_id: itemAtual.sala_id,
+        unidade_destino_id: destino === 'unidade' ? unidadeDestinoId : null,
+        sala_destino_id: destino === 'unidade' ? (salaDestinoId || null) : null,
         responsavel_id: user?.id,
         observacao: observacao || 'Retorno da manutenção',
+        quantidade_movimentada: itemAtual.controle_patrimonial ? 1 : (itemAtual.quantidade_total || 1),
       });
 
       return true;
@@ -789,7 +1031,6 @@ export function useEstoqueMovimentacoesPorProduto(produtoId: string) {
   return useQuery({
     queryKey: ['estoque-movimentacoes-produto', produtoId],
     queryFn: async () => {
-      // Get item IDs for this product
       const { data: itens } = await supabase
         .from('estoque_itens')
         .select('id')
@@ -898,18 +1139,22 @@ export function useRegistrarBaixa() {
     }) => {
       const { data: itemAtual, error: fetchError } = await supabase
         .from('estoque_itens')
-        .select('unidade_atual_id, sala_id, status, controle_patrimonial, quantidade_total')
+        .select('*')
         .eq('id', itemId)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError || !itemAtual) throw new Error('Item não encontrado');
 
-      if (itemAtual?.status === 'baixa') {
+      if (itemAtual.status === 'baixa') {
         throw new Error('Este equipamento já foi baixado.');
       }
 
-      if (itemAtual?.controle_patrimonial) {
-        const { error: updateError } = await supabase
+      const qtdBaixa = quantidadeBaixa || (itemAtual.quantidade_total || 1);
+      let movItemId = itemId;
+
+      if (itemAtual.controle_patrimonial) {
+        // Patrimonial: baixa direta
+        const { error } = await supabase
           .from('estoque_itens')
           .update({
             status: 'baixa' as EstoqueStatus,
@@ -917,38 +1162,68 @@ export function useRegistrarBaixa() {
             sala_id: null,
           })
           .eq('id', itemId);
-
-        if (updateError) throw updateError;
+        if (error) throw error;
       } else {
-        const qtdBaixa = quantidadeBaixa || (itemAtual?.quantidade_total || 1);
-        if (qtdBaixa > (itemAtual?.quantidade_total || 0)) {
+        if (qtdBaixa > (itemAtual.quantidade_total || 0)) {
           throw new Error('Quantidade de baixa excede o disponível');
         }
-        const novaQtd = (itemAtual?.quantidade_total || 0) - qtdBaixa;
-        const { error: updateError } = await supabase
-          .from('estoque_itens')
-          .update({
-            quantidade_total: novaQtd,
-            quantidade: novaQtd,
-            status: novaQtd === 0 ? ('baixa' as EstoqueStatus) : ('disponivel' as EstoqueStatus),
-            unidade_atual_id: novaQtd === 0 ? null : itemAtual?.unidade_atual_id,
-            sala_id: novaQtd === 0 ? null : itemAtual?.sala_id,
-          })
-          .eq('id', itemId);
 
-        if (updateError) throw updateError;
+        if (qtdBaixa === (itemAtual.quantidade_total || 0)) {
+          // Baixa total
+          const { error } = await supabase
+            .from('estoque_itens')
+            .update({
+              status: 'baixa' as EstoqueStatus,
+              unidade_atual_id: null,
+              sala_id: null,
+            })
+            .eq('id', itemId);
+          if (error) throw error;
+        } else {
+          // Baixa parcial: dividir
+          const novaQtd = (itemAtual.quantidade_total || 0) - qtdBaixa;
+
+          const { error: updateError } = await supabase
+            .from('estoque_itens')
+            .update({
+              quantidade_total: novaQtd,
+              quantidade: novaQtd,
+            })
+            .eq('id', itemId);
+          if (updateError) throw updateError;
+
+          const { data: novoItem, error: insertError } = await supabase
+            .from('estoque_itens')
+            .insert({
+              produto_id: itemAtual.produto_id,
+              quantidade: qtdBaixa,
+              quantidade_total: qtdBaixa,
+              controle_patrimonial: false,
+              status: 'baixa' as EstoqueStatus,
+              unidade_atual_id: null,
+              sala_id: null,
+              data_entrada: itemAtual.data_entrada,
+              responsavel_entrada_id: user?.id,
+              observacao_entrada: `Baixa parcial do item ${itemId}`,
+            })
+            .select()
+            .single();
+          if (insertError) throw insertError;
+          movItemId = novoItem.id;
+        }
       }
 
+      // Registrar histórico
       const { error: movError } = await supabase.from('estoque_movimentacoes').insert({
-        item_id: itemId,
+        item_id: movItemId,
         tipo: 'baixa' as MovimentacaoTipo,
         data_movimentacao: dataBaixa,
-        unidade_origem_id: itemAtual?.unidade_atual_id || null,
-        sala_origem_id: itemAtual?.sala_id || null,
+        unidade_origem_id: itemAtual.unidade_atual_id || null,
+        sala_origem_id: itemAtual.sala_id || null,
         unidade_destino_id: null,
         responsavel_id: user?.id,
         observacao: motivo || 'Baixa de equipamento',
-        quantidade_movimentada: quantidadeBaixa || 1,
+        quantidade_movimentada: qtdBaixa,
       });
 
       if (movError) throw movError;
@@ -971,7 +1246,7 @@ export function useEstoqueItensParaBaixa(searchTerm?: string) {
   return useQuery({
     queryKey: ['estoque-itens-para-baixa', searchTerm],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('estoque_itens')
         .select(`
           *,
@@ -982,7 +1257,6 @@ export function useEstoqueItensParaBaixa(searchTerm?: string) {
         .in('status', ['disponivel', 'em_uso'])
         .order('created_at', { ascending: false });
 
-      const { data, error } = await query;
       if (error) throw error;
 
       let filteredData = data as EstoqueItemWithRelations[];
@@ -1003,67 +1277,6 @@ export function useEstoqueItensParaBaixa(searchTerm?: string) {
 
 // ==================== HELPERS ====================
 
-async function upsertLotacao(itemId: string, unidadeId: string, quantidade: number, salaId?: string) {
-  // Check if lotacao exists
-  let query = supabase
-    .from('estoque_lotacoes')
-    .select('id, quantidade')
-    .eq('item_id', itemId)
-    .eq('unidade_id', unidadeId);
-
-  if (salaId) {
-    query = query.eq('sala_id', salaId);
-  } else {
-    query = query.is('sala_id', null);
-  }
-
-  const { data: existing } = await query.maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from('estoque_lotacoes')
-      .update({ quantidade: (existing.quantidade || 0) + quantidade })
-      .eq('id', existing.id);
-  } else {
-    await supabase
-      .from('estoque_lotacoes')
-      .insert({
-        item_id: itemId,
-        unidade_id: unidadeId,
-        sala_id: salaId || null,
-        quantidade,
-      });
-  }
-}
-
-async function decrementLotacao(itemId: string, unidadeId: string, quantidade: number, salaId?: string) {
-  let query = supabase
-    .from('estoque_lotacoes')
-    .select('id, quantidade')
-    .eq('item_id', itemId)
-    .eq('unidade_id', unidadeId);
-
-  if (salaId) {
-    query = query.eq('sala_id', salaId);
-  } else {
-    query = query.is('sala_id', null);
-  }
-
-  const { data: existing } = await query.maybeSingle();
-
-  if (existing) {
-    const novaQtd = (existing.quantidade || 0) - quantidade;
-    if (novaQtd <= 0) {
-      await supabase.from('estoque_lotacoes').delete().eq('id', existing.id);
-    } else {
-      await supabase
-        .from('estoque_lotacoes')
-        .update({ quantidade: novaQtd })
-        .eq('id', existing.id);
-    }
-  }
-}
-
 function invalidateEstoqueQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['estoque-itens'] });
   queryClient.invalidateQueries({ queryKey: ['estoque-item'] });
@@ -1073,4 +1286,5 @@ function invalidateEstoqueQueries(queryClient: ReturnType<typeof useQueryClient>
   queryClient.invalidateQueries({ queryKey: ['produto-distribuicao'] });
   queryClient.invalidateQueries({ queryKey: ['estoque-itens-produto'] });
   queryClient.invalidateQueries({ queryKey: ['estoque-movimentacoes-produto'] });
+  queryClient.invalidateQueries({ queryKey: ['estoque-itens-para-baixa'] });
 }
