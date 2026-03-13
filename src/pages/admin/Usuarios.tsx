@@ -210,16 +210,17 @@ export default function Usuarios() {
   const handleOpenDialog = (user?: any) => {
     if (user) {
       setEditingUser(user);
+      const extractedUsername = user.username || user.email?.replace('@ubs.internal', '') || '';
       setFormData({
         nome: user.nome || '',
-        email: user.email || '',
+        username: extractedUsername,
         senha: '',
         unidade_id: user.unidade_id || '',
         perfil_texto: user.perfil_texto || '',
         isAdmin: user.role === 'admin',
         ativo: user.ativo !== false,
       });
-      setOriginalEmail(user.email || '');
+      setOriginalUsername(extractedUsername);
     } else {
       resetForm();
     }
