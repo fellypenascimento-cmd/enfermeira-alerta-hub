@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 interface CreateUserRequest {
-  email: string
+  username: string
   password: string
   nome: string
   unidade_id?: string
@@ -15,13 +15,11 @@ interface CreateUserRequest {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Verify the requesting user is authenticated and is an admin
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -34,21 +32,18 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-    // Create client with user's token to verify they're an admin
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     })
 
     const { data: { user: requestingUser }, error: authError } = await supabaseAuth.auth.getUser()
     if (authError || !requestingUser) {
-      console.error('Auth error:', authError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check if requesting user is admin
     const { data: roleData, error: roleError } = await supabaseAuth
       .from('user_roles')
       .select('role')
@@ -57,25 +52,33 @@ Deno.serve(async (req) => {
       .single()
 
     if (roleError || !roleData) {
-      console.error('Role check error:', roleError)
       return new Response(
         JSON.stringify({ error: 'Only admins can create users' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Parse request body
     const body: CreateUserRequest = await req.json()
-    console.log('Creating user with data:', { email: body.email, nome: body.nome, role: body.role, perfil_texto: body.perfil_texto })
+    console.log('Creating user with data:', { username: body.username, nome: body.nome, role: body.role })
 
-    if (!body.email || !body.password || !body.nome || !body.role) {
+    if (!body.username || !body.password || !body.nome || !body.role) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: email, password, nome, role' }),
+        JSON.stringify({ error: 'Missing required fields: username, password, nome, role' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Create admin client with service role key
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9._]+$/
+    if (!usernameRegex.test(body.username)) {
+      return new Response(
+        JSON.stringify({ error: 'Username deve conter apenas letras, números, ponto e underline' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const email = `${body.username.toLowerCase()}@ubs.internal`
+
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -83,11 +86,10 @@ Deno.serve(async (req) => {
       }
     })
 
-    // Create user using admin API (won't affect current session)
     const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: body.email,
+      email,
       password: body.password,
-      email_confirm: true, // Auto-confirm email
+      email_confirm: true,
       user_metadata: {
         nome: body.nome
       }
@@ -95,6 +97,12 @@ Deno.serve(async (req) => {
 
     if (createError) {
       console.error('Create user error:', createError)
+      if (createError.message.includes('already been registered')) {
+        return new Response(
+          JSON.stringify({ error: 'Este nome de usuário já está em uso' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       return new Response(
         JSON.stringify({ error: createError.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -110,9 +118,9 @@ Deno.serve(async (req) => {
 
     console.log('User created:', userData.user.id)
 
-    // Update profile with unidade and perfil_texto
     const profileUpdate: Record<string, any> = {
       nome: body.nome,
+      username: body.username.toLowerCase(),
     }
     
     if (body.unidade_id) {
@@ -130,20 +138,15 @@ Deno.serve(async (req) => {
 
     if (profileError) {
       console.error('Profile update error:', profileError)
-      // Don't fail the whole operation, user is already created
     }
 
-    // Set user role
     const { error: insertRoleError } = await supabaseAdmin
       .from('user_roles')
       .insert({ user_id: userData.user.id, role: body.role })
 
     if (insertRoleError) {
       console.error('Role insert error:', insertRoleError)
-      // Don't fail the whole operation
     }
-
-    console.log('User setup complete:', userData.user.id)
 
     return new Response(
       JSON.stringify({ 

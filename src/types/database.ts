@@ -86,5 +86,5 @@ export interface ChamadoWithRelations extends Chamado {
 
 export interface ProfileWithRole extends Profile {
   role?: AppRole;
-  unidade?: Unidade | null;
+  unidade?: { id: string; nome: string } | null;
 }

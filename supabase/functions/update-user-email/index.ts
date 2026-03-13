@@ -5,19 +5,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface UpdateEmailRequest {
+interface UpdateUsernameRequest {
   user_id: string
-  new_email: string
+  new_username: string
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Verify the requesting user is authenticated and is an admin
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -30,21 +28,18 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-    // Create client with user's token to verify they're an admin
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     })
 
     const { data: { user: requestingUser }, error: authError } = await supabaseAuth.auth.getUser()
     if (authError || !requestingUser) {
-      console.error('Auth error:', authError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check if requesting user is admin
     const { data: roleData, error: roleError } = await supabaseAuth
       .from('user_roles')
       .select('role')
@@ -53,34 +48,32 @@ Deno.serve(async (req) => {
       .single()
 
     if (roleError || !roleData) {
-      console.error('Role check error:', roleError)
       return new Response(
-        JSON.stringify({ error: 'Only admins can update user emails' }),
+        JSON.stringify({ error: 'Only admins can update usernames' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Parse request body
-    const body: UpdateEmailRequest = await req.json()
-    console.log('Updating email for user:', body.user_id, 'to:', body.new_email)
+    const body: UpdateUsernameRequest = await req.json()
 
-    if (!body.user_id || !body.new_email) {
+    if (!body.user_id || !body.new_username) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: user_id, new_email' }),
+        JSON.stringify({ error: 'Missing required fields: user_id, new_username' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(body.new_email)) {
+    // Validate username format
+    const usernameRegex = /^[a-zA-Z0-9._]+$/
+    if (!usernameRegex.test(body.new_username)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid email format' }),
+        JSON.stringify({ error: 'Username deve conter apenas letras, números, ponto e underline' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Create admin client with service role key
+    const newEmail = `${body.new_username.toLowerCase()}@ubs.internal`
+
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -88,38 +81,38 @@ Deno.serve(async (req) => {
       }
     })
 
-    // Update user email using admin API
-    const { data: userData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+    // Update auth email
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       body.user_id,
-      { email: body.new_email, email_confirm: true }
+      { email: newEmail, email_confirm: true }
     )
 
     if (updateError) {
       console.error('Update email error:', updateError)
+      if (updateError.message.includes('already been registered')) {
+        return new Response(
+          JSON.stringify({ error: 'Este nome de usuário já está em uso' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       return new Response(
         JSON.stringify({ error: updateError.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Also update the email in profiles table
+    // Update profile
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .update({ email: body.new_email })
+      .update({ email: newEmail, username: body.new_username.toLowerCase() })
       .eq('id', body.user_id)
 
     if (profileError) {
-      console.error('Profile email update error:', profileError)
-      // Don't fail the whole operation
+      console.error('Profile update error:', profileError)
     }
 
-    console.log('Email updated for user:', body.user_id)
-
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Email updated successfully'
-      }),
+      JSON.stringify({ success: true, message: 'Username updated successfully' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
