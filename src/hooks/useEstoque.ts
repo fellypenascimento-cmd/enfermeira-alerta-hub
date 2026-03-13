@@ -897,10 +897,11 @@ export function useRetornarManutencao() {
       } else {
         // Volta para unidade específica
         if (!unidadeDestinoId) throw new Error('Informe a unidade de destino');
+        const statusDestino = await getStatusForDestino(unidadeDestinoId);
         const { error } = await supabase
           .from('estoque_itens')
           .update({
-            status: 'em_uso' as EstoqueStatus,
+            status: statusDestino,
             unidade_atual_id: unidadeDestinoId,
             sala_id: salaDestinoId || null,
           })
