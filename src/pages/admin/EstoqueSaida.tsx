@@ -225,12 +225,10 @@ export default function EstoqueSaida() {
                       ) : unidades && unidades.length > 0 ? (
                         unidades.map((unidade) => (
                           <SelectItem key={unidade.id} value={unidade.id}>
-                            <div className="flex items-center gap-2">
-                              <Building2 className="w-4 h-4" />
-                              {unidade.nome}
-                            </div>
+                            {unidade.nome}
                           </SelectItem>
                         ))
+
                       ) : (
                         <div className="p-2 text-center text-muted-foreground">Nenhuma unidade cadastrada</div>
                       )}
