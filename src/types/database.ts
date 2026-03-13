@@ -5,6 +5,7 @@ export interface Profile {
   id: string;
   nome: string;
   email: string;
+  username: string | null;
   unidade_id: string | null;
   perfil_texto: string | null;
   ativo: boolean;
@@ -85,5 +86,5 @@ export interface ChamadoWithRelations extends Chamado {
 
 export interface ProfileWithRole extends Profile {
   role?: AppRole;
-  unidade?: Unidade | null;
+  unidade?: { id: string; nome: string } | null;
 }

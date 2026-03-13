@@ -62,8 +62,8 @@ import {
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
-// E-mail do administrador master (protegido contra alterações)
-const ADMIN_MASTER_EMAIL = 'fellyperocha33@gmail.com';
+// Username do administrador master (protegido contra alterações)
+const ADMIN_MASTER_USERNAME = 'fellyperocha33';
 
 type SortField = 'nome' | 'unidade';
 type SortOrder = 'asc' | 'desc';
@@ -89,7 +89,7 @@ export default function Usuarios() {
   // Form states
   const [formData, setFormData] = useState({
     nome: '',
-    email: '',
+    username: '',
     senha: '',
     unidade_id: '',
     perfil_texto: '',
@@ -104,9 +104,9 @@ export default function Usuarios() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   
-  // Email change states
-  const [originalEmail, setOriginalEmail] = useState('');
-  const [showEmailWarning, setShowEmailWarning] = useState(false);
+  // Username change states
+  const [originalUsername, setOriginalUsername] = useState('');
+  const [showUsernameWarning, setShowUsernameWarning] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -137,7 +137,7 @@ export default function Usuarios() {
       result = result.filter(u => 
         u.nome?.toLowerCase().includes(search) || 
         u.unidade?.nome?.toLowerCase().includes(search) ||
-        u.email?.toLowerCase().includes(search)
+        u.username?.toLowerCase().includes(search)
       );
     }
     
@@ -191,7 +191,7 @@ export default function Usuarios() {
   const resetForm = () => {
     setFormData({
       nome: '',
-      email: '',
+      username: '',
       senha: '',
       unidade_id: '',
       perfil_texto: '',
@@ -199,8 +199,8 @@ export default function Usuarios() {
       ativo: true,
     });
     setEditingUser(null);
-    setOriginalEmail('');
-    setShowEmailWarning(false);
+    setOriginalUsername('');
+    setShowUsernameWarning(false);
     setNewPassword('');
     setConfirmPassword('');
     setShowNewPassword(false);
@@ -210,28 +210,29 @@ export default function Usuarios() {
   const handleOpenDialog = (user?: any) => {
     if (user) {
       setEditingUser(user);
+      const extractedUsername = user.username || user.email?.replace('@ubs.internal', '') || '';
       setFormData({
         nome: user.nome || '',
-        email: user.email || '',
+        username: extractedUsername,
         senha: '',
         unidade_id: user.unidade_id || '',
         perfil_texto: user.perfil_texto || '',
         isAdmin: user.role === 'admin',
         ativo: user.ativo !== false,
       });
-      setOriginalEmail(user.email || '');
+      setOriginalUsername(extractedUsername);
     } else {
       resetForm();
     }
     setDialogOpen(true);
   };
 
-  const handleEmailChange = (newEmail: string) => {
-    setFormData({ ...formData, email: newEmail });
-    if (editingUser && newEmail !== originalEmail) {
-      setShowEmailWarning(true);
+  const handleUsernameChange = (newUsername: string) => {
+    setFormData({ ...formData, username: newUsername });
+    if (editingUser && newUsername !== originalUsername) {
+      setShowUsernameWarning(true);
     } else {
-      setShowEmailWarning(false);
+      setShowUsernameWarning(false);
     }
   };
 
@@ -266,17 +267,17 @@ export default function Usuarios() {
 
         if (roleError) throw roleError;
 
-        // Update email if changed
-        if (formData.email !== originalEmail) {
+        // Update username if changed
+        if (formData.username !== originalUsername) {
           const response = await supabase.functions.invoke('update-user-email', {
             body: {
               user_id: editingUser.id,
-              new_email: formData.email,
+              new_username: formData.username.toLowerCase().trim(),
             },
           });
 
           if (response.error || response.data?.error) {
-            throw new Error(response.data?.error || 'Erro ao atualizar email');
+            throw new Error(response.data?.error || 'Erro ao atualizar usuário');
           }
         }
 
@@ -285,7 +286,7 @@ export default function Usuarios() {
         // Create new user via Edge Function
         const response = await supabase.functions.invoke('create-user', {
           body: {
-            email: formData.email,
+            username: formData.username.toLowerCase().trim(),
             password: formData.senha,
             nome: formData.nome,
             unidade_id: formData.unidade_id || undefined,
@@ -435,18 +436,22 @@ export default function Usuarios() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
+                    <Label htmlFor="username">Usuário</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleEmailChange(e.target.value)}
+                      id="username"
+                      type="text"
+                      placeholder="Ex: fellype, admin, suporte"
+                      value={formData.username}
+                      onChange={(e) => handleUsernameChange(e.target.value)}
                       required
                     />
-                    {showEmailWarning && (
+                    <p className="text-xs text-muted-foreground">
+                      Apenas letras, números, ponto e underline
+                    </p>
+                    {showUsernameWarning && (
                       <div className="flex items-center gap-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm">
                         <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                        <span>Alterar o e-mail pode afetar o login do usuário.</span>
+                        <span>Alterar o usuário pode afetar o login.</span>
                       </div>
                     )}
                   </div>
@@ -653,7 +658,7 @@ export default function Usuarios() {
                 <div className="md:col-span-2 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar por nome, unidade ou e-mail..."
+                    placeholder="Buscar por nome, unidade ou usuário..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9"
@@ -699,7 +704,7 @@ export default function Usuarios() {
                       <ArrowUpDown className="h-4 w-4" />
                     </div>
                   </TableHead>
-                  <TableHead>E-mail</TableHead>
+                  <TableHead>Usuário</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSort('unidade')}
@@ -733,7 +738,7 @@ export default function Usuarios() {
                   filteredUsers.map((usuario) => (
                     <TableRow key={usuario.id}>
                       <TableCell className="font-medium">{usuario.nome}</TableCell>
-                      <TableCell>{usuario.email}</TableCell>
+                      <TableCell>{usuario.username || usuario.email?.replace('@ubs.internal', '') || '-'}</TableCell>
                       <TableCell>{usuario.unidade?.nome || '-'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -754,7 +759,7 @@ export default function Usuarios() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           {/* Permite edição se NÃO for admin master OU se for o próprio admin master editando */}
-                          {usuario.email !== ADMIN_MASTER_EMAIL || currentUser?.email === ADMIN_MASTER_EMAIL ? (
+                          {(usuario.username || usuario.email?.replace('@ubs.internal', '')) !== ADMIN_MASTER_USERNAME || (currentUser?.email?.replace('@ubs.internal', '') === ADMIN_MASTER_USERNAME) ? (
                             <>
                               <Button
                                 variant="ghost"
@@ -765,7 +770,7 @@ export default function Usuarios() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                               {/* Oculta botões de desativar/excluir para admin master */}
-                              {usuario.email !== ADMIN_MASTER_EMAIL && (
+                              {(usuario.username || usuario.email?.replace('@ubs.internal', '')) !== ADMIN_MASTER_USERNAME && (
                                 <>
                                   <Button
                                     variant="ghost"

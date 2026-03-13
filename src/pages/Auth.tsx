@@ -9,33 +9,30 @@ import { toast } from 'sonner';
 import { Loader2, Shield, Eye, EyeOff } from 'lucide-react';
 import logoTocha from '@/assets/logo-tocha.png';
 import { z } from 'zod';
+
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  username: z.string().min(1, 'Usuário é obrigatório'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres')
 });
+
 export default function Auth() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const {
-    signIn
-  } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = loginSchema.safeParse({
-      email,
-      password
-    });
+    const result = loginSchema.safeParse({ username, password });
     if (!result.success) {
       toast.error(result.error.errors[0].message);
       return;
     }
     setLoading(true);
-    const {
-      error
-    } = await signIn(email, password);
+    const email = `${username.toLowerCase().trim()}@ubs.internal`;
+    const { error } = await signIn(email, password);
     if (error) {
       toast.error(error);
     } else {
@@ -44,6 +41,7 @@ export default function Auth() {
     }
     setLoading(false);
   };
+
   return <div className="min-h-screen flex">
       {/* Left side - Branding with Logo */}
       <div className="hidden lg:flex lg:w-1/2 sidebar-gradient items-center justify-center p-12">
@@ -77,10 +75,10 @@ export default function Auth() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email
+                <Label htmlFor="username" className="text-sm font-medium">
+                  Usuário
                 </Label>
-                <Input id="email" type="email" placeholder="seu.email@exemplo.com" value={email} onChange={e => setEmail(e.target.value)} required className="h-11" autoComplete="email" />
+                <Input id="username" type="text" placeholder="Digite seu usuário" value={username} onChange={e => setUsername(e.target.value)} required className="h-11" autoComplete="username" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium">
