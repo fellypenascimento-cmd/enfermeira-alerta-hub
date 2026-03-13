@@ -759,7 +759,7 @@ export default function Usuarios() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           {/* Permite edição se NÃO for admin master OU se for o próprio admin master editando */}
-                          {usuario.email !== ADMIN_MASTER_EMAIL || currentUser?.email === ADMIN_MASTER_EMAIL ? (
+                          {(usuario.username || usuario.email?.replace('@ubs.internal', '')) !== ADMIN_MASTER_USERNAME || (currentUser?.email?.replace('@ubs.internal', '') === ADMIN_MASTER_USERNAME) ? (
                             <>
                               <Button
                                 variant="ghost"
