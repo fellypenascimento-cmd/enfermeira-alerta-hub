@@ -38,7 +38,7 @@ export default function EstoqueManutencao() {
   const { data: itensEmUso, isLoading: loadingEmUso } = useEstoqueItens({ status: 'em_uso' });
   const { data: itensDisponiveis } = useEstoqueItens({ status: 'disponivel' });
   const { data: itensManutencao, isLoading: loadingManut } = useEstoqueItens({ status: 'manutencao' as any });
-  const { data: unidades } = useUnidades();
+  const { data: unidades, isLoading: loadingUnidades } = useUnidades();
   const registrarManutencao = useRegistrarManutencao();
   const retornarManutencao = useRetornarManutencao();
 
@@ -226,16 +226,26 @@ export default function EstoqueManutencao() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Unidade de Destino *</Label>
-                              <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a unidade" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {unidades?.map((u) => (
-                                    <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              {loadingUnidades ? (
+                                <div className="flex items-center gap-2 p-2 text-muted-foreground">
+                                  <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
+                                </div>
+                              ) : (
+                                <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione a unidade" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {unidades && unidades.length > 0 ? (
+                                      unidades.map((u) => (
+                                        <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                                      ))
+                                    ) : (
+                                      <SelectItem value="__empty" disabled>Nenhuma unidade</SelectItem>
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </div>
                             {unidadeDestinoId && (
                               <div className="space-y-2">
@@ -248,9 +258,13 @@ export default function EstoqueManutencao() {
                                     <SelectValue placeholder="Sala (opcional)" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {salasDestino?.map((s) => (
-                                      <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
-                                    ))}
+                                    {salasDestino && salasDestino.length > 0 ? (
+                                      salasDestino.map((s) => (
+                                        <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                                      ))
+                                    ) : (
+                                      <SelectItem value="__empty_sala" disabled>Nenhuma sala</SelectItem>
+                                    )}
                                   </SelectContent>
                                 </Select>
                               </div>
