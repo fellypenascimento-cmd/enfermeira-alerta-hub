@@ -267,17 +267,17 @@ export default function Usuarios() {
 
         if (roleError) throw roleError;
 
-        // Update email if changed
-        if (formData.email !== originalEmail) {
+        // Update username if changed
+        if (formData.username !== originalUsername) {
           const response = await supabase.functions.invoke('update-user-email', {
             body: {
               user_id: editingUser.id,
-              new_email: formData.email,
+              new_username: formData.username.toLowerCase().trim(),
             },
           });
 
           if (response.error || response.data?.error) {
-            throw new Error(response.data?.error || 'Erro ao atualizar email');
+            throw new Error(response.data?.error || 'Erro ao atualizar usuário');
           }
         }
 
