@@ -89,7 +89,7 @@ export default function Usuarios() {
   // Form states
   const [formData, setFormData] = useState({
     nome: '',
-    email: '',
+    username: '',
     senha: '',
     unidade_id: '',
     perfil_texto: '',
