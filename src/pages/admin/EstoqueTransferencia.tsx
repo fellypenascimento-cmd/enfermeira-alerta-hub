@@ -32,7 +32,7 @@ import { ptBR } from 'date-fns/locale';
 export default function EstoqueTransferencia() {
   const navigate = useNavigate();
   const { data: itensEmUso, isLoading: loadingItens } = useEstoqueItens({ status: 'em_uso' });
-  const { data: unidades } = useUnidades();
+  const { data: unidades, isLoading: loadingUnidades } = useUnidades();
   const registrarTransferencia = useRegistrarTransferencia();
 
   const [searchTerm, setSearchTerm] = React.useState('');
