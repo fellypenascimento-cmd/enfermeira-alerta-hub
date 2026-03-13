@@ -62,8 +62,8 @@ import {
 import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
-// E-mail do administrador master (protegido contra alterações)
-const ADMIN_MASTER_EMAIL = 'fellyperocha33@gmail.com';
+// Username do administrador master (protegido contra alterações)
+const ADMIN_MASTER_USERNAME = 'fellyperocha33';
 
 type SortField = 'nome' | 'unidade';
 type SortOrder = 'asc' | 'desc';
