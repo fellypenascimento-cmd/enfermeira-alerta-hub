@@ -215,25 +215,28 @@ export default function EstoqueSaida() {
                 {/* Unidade de Destino */}
                 <div className="space-y-2">
                   <Label>Unidade de Destino *</Label>
-                  <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a unidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {loadingUnidades ? (
-                        <div className="p-2 text-center text-muted-foreground">Carregando...</div>
-                      ) : unidades && unidades.length > 0 ? (
-                        unidades.map((unidade) => (
-                          <SelectItem key={unidade.id} value={unidade.id}>
-                            {unidade.nome}
-                          </SelectItem>
-                        ))
-
-                      ) : (
-                        <div className="p-2 text-center text-muted-foreground">Nenhuma unidade cadastrada</div>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  {loadingUnidades ? (
+                    <div className="flex items-center gap-2 p-2 text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Carregando unidades...
+                    </div>
+                  ) : (
+                    <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unidades && unidades.length > 0 ? (
+                          unidades.map((unidade) => (
+                            <SelectItem key={unidade.id} value={unidade.id}>
+                              {unidade.nome}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="__empty_unidade" disabled>Nenhuma unidade cadastrada</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {/* Sala de Destino */}
@@ -243,26 +246,28 @@ export default function EstoqueSaida() {
                       <MapPin className="w-4 h-4" />
                       Sala de Destino
                     </Label>
-                    <Select value={salaDestinoId} onValueChange={setSalaDestinoId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a sala (opcional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingSalas ? (
-                          <div className="p-2 text-center text-muted-foreground">Carregando...</div>
-                        ) : salas && salas.length > 0 ? (
-                          salas.map((sala) => (
-                            <SelectItem key={sala.id} value={sala.id}>
-                              {sala.nome}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="p-2 text-center text-muted-foreground">
-                            Nenhuma sala cadastrada para esta unidade
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
+                    {loadingSalas ? (
+                      <div className="flex items-center gap-2 p-2 text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Carregando salas...
+                      </div>
+                    ) : (
+                      <Select value={salaDestinoId} onValueChange={setSalaDestinoId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a sala (opcional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {salas && salas.length > 0 ? (
+                            salas.map((sala) => (
+                              <SelectItem key={sala.id} value={sala.id}>
+                                {sala.nome}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__empty_sala" disabled>Nenhuma sala cadastrada</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 )}
 
