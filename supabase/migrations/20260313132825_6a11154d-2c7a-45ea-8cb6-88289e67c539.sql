@@ -1,0 +1,2 @@
+ALTER TABLE public.estoque_itens DROP CONSTRAINT estoque_itens_status_check;
+ALTER TABLE public.estoque_itens ADD CONSTRAINT estoque_itens_status_check CHECK (status = ANY (ARRAY['disponivel'::text, 'em_uso'::text, 'manutencao'::text, 'baixa'::text]));
