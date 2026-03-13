@@ -770,7 +770,7 @@ export default function Usuarios() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                               {/* Oculta botões de desativar/excluir para admin master */}
-                              {usuario.email !== ADMIN_MASTER_EMAIL && (
+                              {(usuario.username || usuario.email?.replace('@ubs.internal', '')) !== ADMIN_MASTER_USERNAME && (
                                 <>
                                   <Button
                                     variant="ghost"
