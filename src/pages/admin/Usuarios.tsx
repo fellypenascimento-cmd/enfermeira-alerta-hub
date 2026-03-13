@@ -104,9 +104,9 @@ export default function Usuarios() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   
-  // Email change states
-  const [originalEmail, setOriginalEmail] = useState('');
-  const [showEmailWarning, setShowEmailWarning] = useState(false);
+  // Username change states
+  const [originalUsername, setOriginalUsername] = useState('');
+  const [showUsernameWarning, setShowUsernameWarning] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
