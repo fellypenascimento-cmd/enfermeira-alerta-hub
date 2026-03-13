@@ -227,12 +227,12 @@ export default function Usuarios() {
     setDialogOpen(true);
   };
 
-  const handleEmailChange = (newEmail: string) => {
-    setFormData({ ...formData, email: newEmail });
-    if (editingUser && newEmail !== originalEmail) {
-      setShowEmailWarning(true);
+  const handleUsernameChange = (newUsername: string) => {
+    setFormData({ ...formData, username: newUsername });
+    if (editingUser && newUsername !== originalUsername) {
+      setShowUsernameWarning(true);
     } else {
-      setShowEmailWarning(false);
+      setShowUsernameWarning(false);
     }
   };
 
