@@ -738,7 +738,7 @@ export default function Usuarios() {
                   filteredUsers.map((usuario) => (
                     <TableRow key={usuario.id}>
                       <TableCell className="font-medium">{usuario.nome}</TableCell>
-                      <TableCell>{usuario.email}</TableCell>
+                      <TableCell>{usuario.username || usuario.email?.replace('@ubs.internal', '') || '-'}</TableCell>
                       <TableCell>{usuario.unidade?.nome || '-'}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
