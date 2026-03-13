@@ -441,6 +441,7 @@ export type Database = {
           perfil_texto: string | null
           unidade_id: string | null
           updated_at: string | null
+          username: string | null
         }
         Insert: {
           ativo?: boolean | null
@@ -451,6 +452,7 @@ export type Database = {
           perfil_texto?: string | null
           unidade_id?: string | null
           updated_at?: string | null
+          username?: string | null
         }
         Update: {
           ativo?: boolean | null
@@ -461,6 +463,7 @@ export type Database = {
           perfil_texto?: string | null
           unidade_id?: string | null
           updated_at?: string | null
+          username?: string | null
         }
         Relationships: [
           {
