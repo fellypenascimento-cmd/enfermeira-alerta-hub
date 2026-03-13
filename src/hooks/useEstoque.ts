@@ -566,11 +566,15 @@ export function useRegistrarTransferencia() {
       const qtd = quantidade || 1;
       let movItemId = itemId;
 
+      // Determinar status baseado no destino (CPD = disponivel)
+      const statusDestino = await getStatusForDestino(unidadeDestinoId);
+
       if (itemAtual.controle_patrimonial) {
         // Patrimonial: mover diretamente
         const { error } = await supabase
           .from('estoque_itens')
           .update({
+            status: statusDestino,
             unidade_atual_id: unidadeDestinoId,
             sala_id: salaDestinoId || null,
           })
@@ -586,6 +590,7 @@ export function useRegistrarTransferencia() {
           const { error } = await supabase
             .from('estoque_itens')
             .update({
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
             })
@@ -611,7 +616,7 @@ export function useRegistrarTransferencia() {
               quantidade: qtd,
               quantidade_total: qtd,
               controle_patrimonial: false,
-              status: 'em_uso' as EstoqueStatus,
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
               data_entrada: itemAtual.data_entrada,
