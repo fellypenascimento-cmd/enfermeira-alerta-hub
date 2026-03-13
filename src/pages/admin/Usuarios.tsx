@@ -436,18 +436,22 @@ export default function Usuarios() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
+                    <Label htmlFor="username">Usuário</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleEmailChange(e.target.value)}
+                      id="username"
+                      type="text"
+                      placeholder="Ex: fellype, admin, suporte"
+                      value={formData.username}
+                      onChange={(e) => handleUsernameChange(e.target.value)}
                       required
                     />
-                    {showEmailWarning && (
+                    <p className="text-xs text-muted-foreground">
+                      Apenas letras, números, ponto e underline
+                    </p>
+                    {showUsernameWarning && (
                       <div className="flex items-center gap-2 p-2 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm">
                         <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                        <span>Alterar o e-mail pode afetar o login do usuário.</span>
+                        <span>Alterar o usuário pode afetar o login.</span>
                       </div>
                     )}
                   </div>
