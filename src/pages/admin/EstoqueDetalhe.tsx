@@ -342,7 +342,7 @@ export default function EstoqueDetalhe() {
           <Card>
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-green-600">{resumo.disponivel}</p>
-              <p className="text-sm text-muted-foreground">Em Estoque</p>
+              <p className="text-sm text-muted-foreground">Estoque Central</p>
             </CardContent>
           </Card>
           <Card>
@@ -364,6 +364,40 @@ export default function EstoqueDetalhe() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Ações Rápidas */}
+        <FadeIn delay={0.05}>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/admin/estoque/saida">
+                    <ArrowUpFromLine className="w-4 h-4 mr-2" />
+                    Enviar para Unidade
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/admin/estoque/transferencia">
+                    <ArrowLeftRight className="w-4 h-4 mr-2" />
+                    Transferir
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/admin/estoque/manutencao">
+                    <Wrench className="w-4 h-4 mr-2" />
+                    Manutenção
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="border-destructive/30 text-destructive hover:bg-destructive/10">
+                  <Link to="/admin/estoque/baixa">
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Dar Baixa
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </FadeIn>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Distribuição */}
