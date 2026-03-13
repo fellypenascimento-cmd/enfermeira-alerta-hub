@@ -191,7 +191,7 @@ export default function Usuarios() {
   const resetForm = () => {
     setFormData({
       nome: '',
-      email: '',
+      username: '',
       senha: '',
       unidade_id: '',
       perfil_texto: '',
@@ -199,8 +199,8 @@ export default function Usuarios() {
       ativo: true,
     });
     setEditingUser(null);
-    setOriginalEmail('');
-    setShowEmailWarning(false);
+    setOriginalUsername('');
+    setShowUsernameWarning(false);
     setNewPassword('');
     setConfirmPassword('');
     setShowNewPassword(false);
