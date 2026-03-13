@@ -13,6 +13,24 @@ import type {
 } from '@/types/estoque';
 import { toast } from 'sonner';
 
+// ==================== HELPER: CHECK IF UNIT IS CPD ====================
+// Equipamento no CPD é sempre "disponivel" (centro de redistribuição)
+async function getStatusForDestino(unidadeDestinoId: string | null): Promise<EstoqueStatus> {
+  if (!unidadeDestinoId) return 'disponivel'; // Estoque central (sem unidade)
+  
+  const { data } = await supabase
+    .from('unidades')
+    .select('nome')
+    .eq('id', unidadeDestinoId)
+    .single();
+  
+  const nome = data?.nome?.trim().toUpperCase() || '';
+  if (nome === 'CPD' || nome.includes('CPD')) {
+    return 'disponivel';
+  }
+  return 'em_uso';
+}
+
 // ==================== PRODUTOS ====================
 
 export function useProdutos() {
@@ -413,12 +431,15 @@ export function useRegistrarSaida() {
       const qtdSaida = quantidadeSaida || 1;
       let movItemId = itemId;
 
+      // Determinar status baseado no destino (CPD = disponivel)
+      const statusDestino = await getStatusForDestino(unidadeDestinoId);
+
       if (itemAtual.controle_patrimonial) {
         // Item patrimonial: atualizar estado diretamente
         const { error: updateError } = await supabase
           .from('estoque_itens')
           .update({
-            status: 'em_uso' as EstoqueStatus,
+            status: statusDestino,
             unidade_atual_id: unidadeDestinoId,
             sala_id: salaDestinoId || null,
           })
@@ -436,7 +457,7 @@ export function useRegistrarSaida() {
           const { error: updateError } = await supabase
             .from('estoque_itens')
             .update({
-              status: 'em_uso' as EstoqueStatus,
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
             })
@@ -465,7 +486,7 @@ export function useRegistrarSaida() {
               quantidade: qtdSaida,
               quantidade_total: qtdSaida,
               controle_patrimonial: false,
-              status: 'em_uso' as EstoqueStatus,
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
               data_entrada: itemAtual.data_entrada,
@@ -545,11 +566,15 @@ export function useRegistrarTransferencia() {
       const qtd = quantidade || 1;
       let movItemId = itemId;
 
+      // Determinar status baseado no destino (CPD = disponivel)
+      const statusDestino = await getStatusForDestino(unidadeDestinoId);
+
       if (itemAtual.controle_patrimonial) {
         // Patrimonial: mover diretamente
         const { error } = await supabase
           .from('estoque_itens')
           .update({
+            status: statusDestino,
             unidade_atual_id: unidadeDestinoId,
             sala_id: salaDestinoId || null,
           })
@@ -565,6 +590,7 @@ export function useRegistrarTransferencia() {
           const { error } = await supabase
             .from('estoque_itens')
             .update({
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
             })
@@ -590,7 +616,7 @@ export function useRegistrarTransferencia() {
               quantidade: qtd,
               quantidade_total: qtd,
               controle_patrimonial: false,
-              status: 'em_uso' as EstoqueStatus,
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
               data_entrada: itemAtual.data_entrada,
@@ -871,10 +897,11 @@ export function useRetornarManutencao() {
       } else {
         // Volta para unidade específica
         if (!unidadeDestinoId) throw new Error('Informe a unidade de destino');
+        const statusDestino = await getStatusForDestino(unidadeDestinoId);
         const { error } = await supabase
           .from('estoque_itens')
           .update({
-            status: 'em_uso' as EstoqueStatus,
+            status: statusDestino,
             unidade_atual_id: unidadeDestinoId,
             sala_id: salaDestinoId || null,
           })
