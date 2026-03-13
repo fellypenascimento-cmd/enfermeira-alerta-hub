@@ -137,7 +137,7 @@ export default function Usuarios() {
       result = result.filter(u => 
         u.nome?.toLowerCase().includes(search) || 
         u.unidade?.nome?.toLowerCase().includes(search) ||
-        u.email?.toLowerCase().includes(search)
+        u.username?.toLowerCase().includes(search)
       );
     }
     
