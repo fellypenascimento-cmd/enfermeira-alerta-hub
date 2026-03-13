@@ -200,9 +200,13 @@ export default function EstoqueTransferencia() {
                     <Select value={unidadeOrigemId} onValueChange={(v) => { setUnidadeOrigemId(v); setSalaOrigemId(''); }}>
                       <SelectTrigger><SelectValue placeholder="Origem" /></SelectTrigger>
                       <SelectContent>
-                        {unidades?.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
-                        ))}
+                        {unidades && unidades.length > 0 ? (
+                          unidades.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="__empty" disabled>Nenhuma unidade</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -212,9 +216,13 @@ export default function EstoqueTransferencia() {
                       <Select value={salaOrigemId} onValueChange={setSalaOrigemId}>
                         <SelectTrigger><SelectValue placeholder="Sala (opcional)" /></SelectTrigger>
                         <SelectContent>
-                          {salasOrigem?.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
-                          ))}
+                          {salasOrigem && salasOrigem.length > 0 ? (
+                            salasOrigem.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__empty" disabled>Nenhuma sala</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -228,9 +236,13 @@ export default function EstoqueTransferencia() {
                     <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
                       <SelectTrigger><SelectValue placeholder="Destino" /></SelectTrigger>
                       <SelectContent>
-                        {unidades?.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
-                        ))}
+                        {unidades && unidades.length > 0 ? (
+                          unidades.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="__empty" disabled>Nenhuma unidade</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -240,9 +252,13 @@ export default function EstoqueTransferencia() {
                       <Select value={salaDestinoId} onValueChange={setSalaDestinoId}>
                         <SelectTrigger><SelectValue placeholder="Sala (opcional)" /></SelectTrigger>
                         <SelectContent>
-                          {salasDestino?.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
-                          ))}
+                          {salasDestino && salasDestino.length > 0 ? (
+                            salasDestino.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__empty" disabled>Nenhuma sala</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>

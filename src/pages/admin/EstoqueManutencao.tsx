@@ -226,14 +226,18 @@ export default function EstoqueManutencao() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Unidade de Destino *</Label>
-                              <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
+                          <Select value={unidadeDestinoId} onValueChange={(v) => { setUnidadeDestinoId(v); setSalaDestinoId(''); }}>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Selecione a unidade" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {unidades?.map((u) => (
-                                    <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
-                                  ))}
+                                  {unidades && unidades.length > 0 ? (
+                                    unidades.map((u) => (
+                                      <SelectItem key={u.id} value={u.id}>{u.nome}</SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="__empty" disabled>Nenhuma unidade</SelectItem>
+                                  )}
                                 </SelectContent>
                               </Select>
                             </div>
@@ -248,9 +252,13 @@ export default function EstoqueManutencao() {
                                     <SelectValue placeholder="Sala (opcional)" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {salasDestino?.map((s) => (
-                                      <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
-                                    ))}
+                                    {salasDestino && salasDestino.length > 0 ? (
+                                      salasDestino.map((s) => (
+                                        <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                                      ))
+                                    ) : (
+                                      <SelectItem value="__empty" disabled>Nenhuma sala</SelectItem>
+                                    )}
                                   </SelectContent>
                                 </Select>
                               </div>
