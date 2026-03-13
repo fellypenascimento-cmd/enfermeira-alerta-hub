@@ -431,12 +431,15 @@ export function useRegistrarSaida() {
       const qtdSaida = quantidadeSaida || 1;
       let movItemId = itemId;
 
+      // Determinar status baseado no destino (CPD = disponivel)
+      const statusDestino = await getStatusForDestino(unidadeDestinoId);
+
       if (itemAtual.controle_patrimonial) {
         // Item patrimonial: atualizar estado diretamente
         const { error: updateError } = await supabase
           .from('estoque_itens')
           .update({
-            status: 'em_uso' as EstoqueStatus,
+            status: statusDestino,
             unidade_atual_id: unidadeDestinoId,
             sala_id: salaDestinoId || null,
           })
@@ -454,7 +457,7 @@ export function useRegistrarSaida() {
           const { error: updateError } = await supabase
             .from('estoque_itens')
             .update({
-              status: 'em_uso' as EstoqueStatus,
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
             })
@@ -483,7 +486,7 @@ export function useRegistrarSaida() {
               quantidade: qtdSaida,
               quantidade_total: qtdSaida,
               controle_patrimonial: false,
-              status: 'em_uso' as EstoqueStatus,
+              status: statusDestino,
               unidade_atual_id: unidadeDestinoId,
               sala_id: salaDestinoId || null,
               data_entrada: itemAtual.data_entrada,
