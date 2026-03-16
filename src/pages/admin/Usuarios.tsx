@@ -63,7 +63,7 @@ import { toast } from 'sonner';
 import { Navigate } from 'react-router-dom';
 
 // Username do administrador master (protegido contra alterações)
-const ADMIN_MASTER_USERNAME = 'fellyperocha33';
+const ADMIN_MASTER_USERNAME = 'cpd';
 
 type SortField = 'nome' | 'unidade';
 type SortOrder = 'asc' | 'desc';
