@@ -491,12 +491,42 @@ export default function Usuarios() {
 
                   <div className="space-y-2">
                     <Label htmlFor="perfil_texto">Cargo / Título</Label>
-                    <Input
-                      id="perfil_texto"
-                      placeholder="Ex: Diretor(a), Enfermeira, Técnico, Recepcionista"
-                      value={formData.perfil_texto}
-                      onChange={(e) => setFormData({ ...formData, perfil_texto: e.target.value })}
-                    />
+                    <Select
+                      value={
+                        ['Diretor(a)', 'Enfermeiro(a)', 'Técnico(a) de Enfermagem', 'Recepcionista', 'Administrador CPD'].includes(formData.perfil_texto)
+                          ? formData.perfil_texto
+                          : formData.perfil_texto ? 'outro' : ''
+                      }
+                      onValueChange={(value) => {
+                        if (value === 'outro') {
+                          setFormData({ ...formData, perfil_texto: '' });
+                        } else {
+                          setFormData({ ...formData, perfil_texto: value });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o cargo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Diretor(a)">Diretor(a)</SelectItem>
+                        <SelectItem value="Enfermeiro(a)">Enfermeiro(a)</SelectItem>
+                        <SelectItem value="Técnico(a) de Enfermagem">Técnico(a) de Enfermagem</SelectItem>
+                        <SelectItem value="Recepcionista">Recepcionista</SelectItem>
+                        <SelectItem value="Administrador CPD">Administrador CPD</SelectItem>
+                        <SelectItem value="outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(
+                      !['Diretor(a)', 'Enfermeiro(a)', 'Técnico(a) de Enfermagem', 'Recepcionista', 'Administrador CPD', ''].includes(formData.perfil_texto)
+                    ) && (
+                      <Input
+                        id="perfil_texto_custom"
+                        placeholder="Digite o cargo personalizado"
+                        value={formData.perfil_texto}
+                        onChange={(e) => setFormData({ ...formData, perfil_texto: e.target.value })}
+                      />
+                    )}
                     <p className="text-xs text-muted-foreground">
                       Nome do cargo que será exibido no perfil do usuário
                     </p>
