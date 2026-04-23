@@ -147,7 +147,6 @@ export type Database = {
       }
       estoque_itens: {
         Row: {
-          controle_patrimonial: boolean
           created_at: string | null
           data_entrada: string
           id: string
@@ -155,8 +154,6 @@ export type Database = {
           numero_patrimonio: string | null
           observacao_entrada: string | null
           produto_id: string
-          quantidade: number | null
-          quantidade_total: number
           responsavel_entrada_id: string
           sala_id: string | null
           status: string | null
@@ -164,7 +161,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          controle_patrimonial?: boolean
           created_at?: string | null
           data_entrada?: string
           id?: string
@@ -172,8 +168,6 @@ export type Database = {
           numero_patrimonio?: string | null
           observacao_entrada?: string | null
           produto_id: string
-          quantidade?: number | null
-          quantidade_total?: number
           responsavel_entrada_id: string
           sala_id?: string | null
           status?: string | null
@@ -181,7 +175,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          controle_patrimonial?: boolean
           created_at?: string | null
           data_entrada?: string
           id?: string
@@ -189,8 +182,6 @@ export type Database = {
           numero_patrimonio?: string | null
           observacao_entrada?: string | null
           produto_id?: string
-          quantidade?: number | null
-          quantidade_total?: number
           responsavel_entrada_id?: string
           sala_id?: string | null
           status?: string | null
