@@ -398,7 +398,6 @@ async function pickItems(opts: {
 
 export function useRegistrarSaida() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -426,40 +425,15 @@ export function useRegistrarSaida() {
         quantidade,
       });
 
-      const statusDestino = await getStatusForDestino(unidadeDestinoId);
-
-      for (const id of ids) {
-        const { data: itemAtual } = await supabase
-          .from('estoque_itens')
-          .select('unidade_atual_id, sala_id')
-          .eq('id', id)
-          .single();
-
-        const { error: updErr } = await supabase
-          .from('estoque_itens')
-          .update({
-            status: statusDestino,
-            unidade_atual_id: unidadeDestinoId,
-            sala_id: salaDestinoId || null,
-          })
-          .eq('id', id);
-        if (updErr) throw updErr;
-
-        await supabase.from('estoque_movimentacoes').insert({
-          item_id: id,
-          tipo: 'saida' as MovimentacaoTipo,
-          data_movimentacao: dataSaida,
-          unidade_origem_id: itemAtual?.unidade_atual_id || null,
-          sala_origem_id: itemAtual?.sala_id || null,
-          unidade_destino_id: unidadeDestinoId,
-          sala_destino_id: salaDestinoId || null,
-          responsavel_id: user?.id,
-          observacao: observacao || 'Saída para unidade',
-          quantidade_movimentada: 1,
-        });
-      }
-
-      return ids.length;
+      const { data, error } = await supabase.rpc('registrar_saida_itens', {
+        p_item_ids: ids,
+        p_unidade_destino: unidadeDestinoId,
+        p_sala_destino: salaDestinoId || null,
+        p_data: dataSaida,
+        p_observacao: observacao || null,
+      });
+      if (error) throw error;
+      return data as number;
     },
     onSuccess: (count) => {
       invalidateEstoqueQueries(queryClient);
