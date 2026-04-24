@@ -27,7 +27,16 @@ import EstoqueManutencao from "./pages/admin/EstoqueManutencao";
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function ProtectedRoute({ children, adminOnly = false, userOnly = false }: { children: React.ReactNode; adminOnly?: boolean; userOnly?: boolean }) {
   const { user, isAdmin, loading } = useAuth();
