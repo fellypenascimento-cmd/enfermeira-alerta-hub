@@ -39,16 +39,32 @@ export default function EstoqueTransferencia() {
 
   const { data: salasOrigem } = useSalas(unidadeOrigemId || undefined);
   const { data: salasDestino } = useSalas(unidadeDestinoId || undefined);
-  const { data: itensProduto } = useEstoqueItensPorProduto(produtoId);
 
-  const itensNaUnidade = React.useMemo(
-    () => (itensProduto || []).filter(i =>
-      i.status === 'em_uso' &&
-      i.unidade_atual_id === unidadeOrigemId &&
-      (!salaOrigemId || i.sala_id === salaOrigemId)
-    ),
-    [itensProduto, unidadeOrigemId, salaOrigemId]
+  // Só carrega a lista detalhada se o usuário ativar seleção manual
+  const { data: itensProduto } = useEstoqueItensPorProduto(
+    modoManual && produtoId && unidadeOrigemId ? produtoId : '',
+    { status: 'em_uso', unidadeId: unidadeOrigemId || undefined, salaId: salaOrigemId || undefined }
   );
+
+  // Contagem leve para o modo automático (sem trazer relacionamentos)
+  const [countOrigem, setCountOrigem] = React.useState<number>(0);
+  React.useEffect(() => {
+    let cancel = false;
+    if (!produtoId || !unidadeOrigemId) { setCountOrigem(0); return; }
+    (async () => {
+      const { supabase } = await import('@/integrations/supabase/client');
+      let q = supabase.from('estoque_itens').select('id', { count: 'exact', head: true })
+        .eq('produto_id', produtoId)
+        .eq('status', 'em_uso')
+        .eq('unidade_atual_id', unidadeOrigemId);
+      if (salaOrigemId) q = q.eq('sala_id', salaOrigemId);
+      const { count } = await q;
+      if (!cancel) setCountOrigem(count || 0);
+    })();
+    return () => { cancel = true; };
+  }, [produtoId, unidadeOrigemId, salaOrigemId]);
+
+  const itensNaUnidade = itensProduto || [];
 
   const toggleItem = (id: string) => {
     setSelectedItemIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
