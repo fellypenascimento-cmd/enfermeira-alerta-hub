@@ -811,7 +811,6 @@ export function useAtualizarPatrimonio() {
 
 export function useRegistrarBaixa() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -845,40 +844,13 @@ export function useRegistrarBaixa() {
         ids = data.map(d => d.id);
       }
 
-      for (const id of ids) {
-        const { data: itemAtual } = await supabase
-          .from('estoque_itens')
-          .select('status, unidade_atual_id, sala_id')
-          .eq('id', id)
-          .single();
-
-        if (itemAtual?.status === 'baixa') {
-          throw new Error('Item já foi baixado');
-        }
-
-        const { error } = await supabase
-          .from('estoque_itens')
-          .update({
-            status: 'baixa' as EstoqueStatus,
-            unidade_atual_id: null,
-            sala_id: null,
-          })
-          .eq('id', id);
-        if (error) throw error;
-
-        await supabase.from('estoque_movimentacoes').insert({
-          item_id: id,
-          tipo: 'baixa' as MovimentacaoTipo,
-          data_movimentacao: dataBaixa,
-          unidade_origem_id: itemAtual?.unidade_atual_id || null,
-          sala_origem_id: itemAtual?.sala_id || null,
-          unidade_destino_id: null,
-          responsavel_id: user?.id,
-          observacao: motivo || 'Baixa de equipamento',
-          quantidade_movimentada: 1,
-        });
-      }
-      return ids.length;
+      const { data, error } = await supabase.rpc('registrar_baixa_itens', {
+        p_item_ids: ids,
+        p_data: dataBaixa,
+        p_motivo: motivo || null,
+      });
+      if (error) throw error;
+      return data as number;
     },
     onSuccess: () => {
       invalidateEstoqueQueries(queryClient);
