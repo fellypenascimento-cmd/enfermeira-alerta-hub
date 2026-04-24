@@ -450,7 +450,6 @@ export function useRegistrarSaida() {
 
 export function useRegistrarTransferencia() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -483,34 +482,15 @@ export function useRegistrarTransferencia() {
         quantidade,
       });
 
-      const statusDestino = await getStatusForDestino(unidadeDestinoId);
-
-      for (const id of ids) {
-        const { error } = await supabase
-          .from('estoque_itens')
-          .update({
-            status: statusDestino,
-            unidade_atual_id: unidadeDestinoId,
-            sala_id: salaDestinoId || null,
-          })
-          .eq('id', id);
-        if (error) throw error;
-
-        await supabase.from('estoque_movimentacoes').insert({
-          item_id: id,
-          tipo: 'transferencia' as MovimentacaoTipo,
-          data_movimentacao: dataTransferencia,
-          unidade_origem_id: unidadeOrigemId,
-          sala_origem_id: salaOrigemId || null,
-          unidade_destino_id: unidadeDestinoId,
-          sala_destino_id: salaDestinoId || null,
-          responsavel_id: user?.id,
-          observacao: observacao || 'Transferência entre unidades',
-          quantidade_movimentada: 1,
-        });
-      }
-
-      return ids.length;
+      const { data, error } = await supabase.rpc('transferir_itens', {
+        p_item_ids: ids,
+        p_unidade_destino: unidadeDestinoId,
+        p_sala_destino: salaDestinoId || null,
+        p_data: dataTransferencia,
+        p_observacao: observacao || null,
+      });
+      if (error) throw error;
+      return data as number;
     },
     onSuccess: (count) => {
       invalidateEstoqueQueries(queryClient);
