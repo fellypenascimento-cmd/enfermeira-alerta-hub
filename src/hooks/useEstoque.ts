@@ -262,11 +262,15 @@ export function useEstoqueItemById(id: string) {
   });
 }
 
-export function useEstoqueItensPorProduto(produtoId: string) {
+export function useEstoqueItensPorProduto(
+  produtoId: string,
+  filters?: { status?: EstoqueStatus | EstoqueStatus[]; unidadeId?: string | null; salaId?: string | null }
+) {
+  const statusKey = Array.isArray(filters?.status) ? filters?.status.join(',') : filters?.status;
   return useQuery({
-    queryKey: ['estoque-itens-produto', produtoId],
+    queryKey: ['estoque-itens-produto', produtoId, statusKey, filters?.unidadeId, filters?.salaId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('estoque_itens')
         .select(`
           *,
@@ -276,10 +280,21 @@ export function useEstoqueItensPorProduto(produtoId: string) {
         `)
         .eq('produto_id', produtoId)
         .order('created_at', { ascending: false });
+
+      if (filters?.status) {
+        if (Array.isArray(filters.status)) query = query.in('status', filters.status);
+        else query = query.eq('status', filters.status);
+      }
+      if (filters?.unidadeId === null) query = query.is('unidade_atual_id', null);
+      else if (filters?.unidadeId) query = query.eq('unidade_atual_id', filters.unidadeId);
+      if (filters?.salaId) query = query.eq('sala_id', filters.salaId);
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as unknown as EstoqueItemWithRelations[];
     },
     enabled: !!produtoId,
+    staleTime: 15_000,
   });
 }
 
