@@ -507,7 +507,6 @@ export function useRegistrarTransferencia() {
 
 export function useRegistrarRetorno() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -519,36 +518,13 @@ export function useRegistrarRetorno() {
       dataRetorno: string;
       observacao?: string;
     }) => {
-      for (const id of itemIds) {
-        const { data: itemAtual } = await supabase
-          .from('estoque_itens')
-          .select('unidade_atual_id, sala_id')
-          .eq('id', id)
-          .single();
-
-        const { error } = await supabase
-          .from('estoque_itens')
-          .update({
-            status: 'disponivel' as EstoqueStatus,
-            unidade_atual_id: null,
-            sala_id: null,
-          })
-          .eq('id', id);
-        if (error) throw error;
-
-        await supabase.from('estoque_movimentacoes').insert({
-          item_id: id,
-          tipo: 'devolucao' as MovimentacaoTipo,
-          data_movimentacao: dataRetorno,
-          unidade_origem_id: itemAtual?.unidade_atual_id || null,
-          sala_origem_id: itemAtual?.sala_id || null,
-          unidade_destino_id: null,
-          responsavel_id: user?.id,
-          observacao: observacao || 'Retorno ao estoque central',
-          quantidade_movimentada: 1,
-        });
-      }
-      return itemIds.length;
+      const { data, error } = await supabase.rpc('retornar_itens_estoque', {
+        p_item_ids: itemIds,
+        p_data: dataRetorno,
+        p_observacao: observacao || null,
+      });
+      if (error) throw error;
+      return data as number;
     },
     onSuccess: () => {
       invalidateEstoqueQueries(queryClient);
@@ -564,7 +540,6 @@ export function useRegistrarRetorno() {
 
 export function useRegistrarManutencao() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -582,7 +557,6 @@ export function useRegistrarManutencao() {
     }) => {
       let ids = itemIds || [];
       if (ids.length === 0) {
-        // pick from em_uso OR disponivel (any unit)
         const qtd = Math.max(1, quantidade || 1);
         let query = supabase
           .from('estoque_itens')
@@ -599,35 +573,13 @@ export function useRegistrarManutencao() {
         ids = data.map(d => d.id);
       }
 
-      for (const id of ids) {
-        const { data: itemAtual } = await supabase
-          .from('estoque_itens')
-          .select('unidade_atual_id, sala_id')
-          .eq('id', id)
-          .single();
-
-        const { error } = await supabase
-          .from('estoque_itens')
-          .update({
-            status: 'manutencao' as EstoqueStatus,
-            unidade_atual_id: null,
-            sala_id: null,
-          })
-          .eq('id', id);
-        if (error) throw error;
-
-        await supabase.from('estoque_movimentacoes').insert({
-          item_id: id,
-          tipo: 'manutencao' as MovimentacaoTipo,
-          data_movimentacao: dataManutencao,
-          unidade_origem_id: itemAtual?.unidade_atual_id || null,
-          sala_origem_id: itemAtual?.sala_id || null,
-          responsavel_id: user?.id,
-          observacao: observacao || 'Equipamento em manutenção',
-          quantidade_movimentada: 1,
-        });
-      }
-      return ids.length;
+      const { data, error } = await supabase.rpc('registrar_manutencao_itens', {
+        p_item_ids: ids,
+        p_data: dataManutencao,
+        p_observacao: observacao || null,
+      });
+      if (error) throw error;
+      return data as number;
     },
     onSuccess: () => {
       invalidateEstoqueQueries(queryClient);
