@@ -179,7 +179,7 @@ export default function EstoqueTransferencia() {
                     <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                       <div>
                         <Label htmlFor="manual-t">Selecionar itens manualmente</Label>
-                        <p className="text-xs text-muted-foreground">{itensNaUnidade.length} item(ns) na origem</p>
+                        <p className="text-xs text-muted-foreground">{countOrigem} item(ns) na origem</p>
                       </div>
                       <Switch id="manual-t" checked={modoManual} onCheckedChange={(v) => { setModoManual(v); setSelectedItemIds([]); setQuantidade(''); }} />
                     </div>
@@ -189,7 +189,7 @@ export default function EstoqueTransferencia() {
                         <Label>Quantidade a transferir *</Label>
                         <Input type="text" inputMode="numeric" pattern="[0-9]*" value={quantidade}
                           onChange={(e) => setQuantidade(e.target.value.replace(/\D/g, ''))}
-                          placeholder={`Máximo: ${itensNaUnidade.length}`} />
+                          placeholder={`Máximo: ${countOrigem}`} />
                       </div>
                     ) : (
                       <div className="space-y-2">
