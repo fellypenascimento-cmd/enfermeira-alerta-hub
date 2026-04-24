@@ -81,8 +81,8 @@ export default function EstoqueTransferencia() {
     } else {
       const qtd = parseInt(quantidade) || 0;
       if (qtd < 1) { toast.error('Informe a quantidade'); return; }
-      if (qtd > itensNaUnidade.length) {
-        toast.error(`Apenas ${itensNaUnidade.length} item(ns) nesta origem`);
+      if (qtd > countOrigem) {
+        toast.error(`Apenas ${countOrigem} item(ns) nesta origem`);
         return;
       }
     }
