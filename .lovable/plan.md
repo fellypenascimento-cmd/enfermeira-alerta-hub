@@ -1,35 +1,27 @@
-# Corrigir erro de transferência de equipamento
+# Itens disponíveis no CPD não aparecem para alocar
 
 ## Causa
-O constraint `estoque_movimentacoes_tipo_check` no banco aceita apenas:
-`'entrada', 'saida', 'devolucao', 'baixa'`
+Quando um item é transferido para a unidade CPD, o backend corretamente define `status = 'disponivel'` mas **mantém `unidade_atual_id = CPD`** (não vira `NULL`). No banco hoje há:
+- 1 item disponível sem unidade
+- 2 itens disponíveis alocados ao CPD
 
-Mas as funções RPC criadas recentemente (`transferir_itens`, `registrar_manutencao_itens`, etc.) inserem os tipos:
-- `'transferencia'` — usado em transferências
-- `'manutencao'` — usado em envio para manutenção
-- `'retorno_manutencao'` — usado no retorno
+Total = 3 (o que aparece no resumo).
 
-Por isso, ao registrar uma transferência, o Postgres rejeita o INSERT.
+Porém, na tela **Saída para Unidade**, a seleção automática filtra apenas itens com `unidade_atual_id IS NULL` (`pickItems` recebe `unidadeId: null`). Resultado: os 2 itens do CPD ficam invisíveis para alocação, e quando o usuário tenta enviar dá "0 disponível".
 
-## Solução
-Criar migration que recria o constraint incluindo todos os tipos válidos do sistema:
+O mesmo problema aparece no modo manual da tela: o filtro `i.status === 'disponivel' && !i.unidade_atual_id` esconde itens do CPD.
 
-```sql
-ALTER TABLE public.estoque_movimentacoes
-  DROP CONSTRAINT estoque_movimentacoes_tipo_check;
+## Correção
 
-ALTER TABLE public.estoque_movimentacoes
-  ADD CONSTRAINT estoque_movimentacoes_tipo_check
-  CHECK (tipo IN (
-    'entrada',
-    'saida',
-    'transferencia',
-    'devolucao',
-    'manutencao',
-    'retorno_manutencao',
-    'baixa'
-  ));
+**`src/hooks/useEstoque.ts` — `useRegistrarSaida`**
+Remover o filtro `unidadeId: null` na chamada `pickItems`. Qualquer item com `status = 'disponivel'` (esteja sem unidade ou no CPD) deve ser elegível para saída.
+
+**`src/pages/admin/EstoqueSaida.tsx`**
+Ajustar a lista do modo manual para mostrar itens disponíveis independentemente da unidade:
+```ts
+itensProduto.filter(i => i.status === 'disponivel')
 ```
+(remover o `&& !i.unidade_atual_id`).
 
 ## Resultado
-Transferências, envios para manutenção e retornos passam a ser registrados normalmente, sem afetar movimentações já existentes (todos os tipos antigos continuam válidos).
+Os 3 computadores aparecem corretamente como disponíveis e podem ser alocados a uma unidade. Histórico de movimentação (origem CPD → destino unidade) continua sendo registrado normalmente pela RPC `registrar_saida_itens`.
