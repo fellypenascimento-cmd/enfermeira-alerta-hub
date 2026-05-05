@@ -42,7 +42,7 @@ export default function EstoqueSaida() {
   const { data: itensProduto } = useEstoqueItensPorProduto(produtoId);
 
   const itensDisponiveis = React.useMemo(
-    () => (itensProduto || []).filter(i => i.status === 'disponivel' && !i.unidade_atual_id),
+    () => (itensProduto || []).filter(i => i.status === 'disponivel'),
     [itensProduto]
   );
 

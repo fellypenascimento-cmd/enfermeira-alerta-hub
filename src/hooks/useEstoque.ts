@@ -417,10 +417,10 @@ export function useRegistrarSaida() {
       dataSaida: string;
       observacao?: string;
     }) => {
+      // Itens 'disponivel' podem estar sem unidade OU alocados ao CPD (estoque central).
       const ids = await pickItems({
         produtoId,
         status: 'disponivel',
-        unidadeId: null,
         itemIds,
         quantidade,
       });
