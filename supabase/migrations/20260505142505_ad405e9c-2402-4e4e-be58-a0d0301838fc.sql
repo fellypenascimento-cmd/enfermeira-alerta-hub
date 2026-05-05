@@ -1,0 +1,2 @@
+ALTER TABLE public.estoque_movimentacoes DROP CONSTRAINT IF EXISTS estoque_movimentacoes_tipo_check;
+ALTER TABLE public.estoque_movimentacoes ADD CONSTRAINT estoque_movimentacoes_tipo_check CHECK (tipo IN ('entrada','saida','transferencia','devolucao','manutencao','retorno_manutencao','baixa'));
