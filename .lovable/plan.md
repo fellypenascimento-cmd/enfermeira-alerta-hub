@@ -1,55 +1,29 @@
+# Corrigir tela branca ao adicionar novo produto
 
+## Causa raiz
 
-# Corrigir crash da página de Transferência + melhorar performance do estoque
+Em `src/pages/admin/EstoqueEntrada.tsx`, o `Select` de produtos tem conteúdo condicional **dentro** do `SelectContent`:
 
-## Problema 1 — Página em branco na transferência
+```tsx
+<SelectContent>
+  {loadingProdutos ? <div>Carregando...</div> : produtos.map(...)}
+</SelectContent>
+```
 
-**Causa raiz:** A query `useEstoqueItensPorProduto(produtoId)` é disparada assim que o equipamento é selecionado. Ela carrega TODOS os itens daquele produto (incluindo os relacionamentos `produto`, `unidade_atual`, `sala`) sem nenhum filtro adicional. Em estoques grandes ou quando o produto tem muitos itens, isso gera um payload pesado e o componente faz um `.filter()` no cliente. Quando o React tenta re-renderizar a lista de checkboxes (mesmo com `modoManual=false`), pode estourar e travar a tela.
+Esse padrão é exatamente o que já causou crash em outras telas de estoque (Saída, Transferência, Manutenção) — quando a query de `produtos` é invalidada (ex: após criar um novo produto via `useCreateProduto`, que chama `invalidateQueries(['produtos'])`), o Radix UI Select tenta reconciliar a árvore enquanto os filhos mudam de tipo (`<div>` → `<SelectItem>`) e dispara `removeChild on Node`, derrubando a tela inteira.
 
-Além disso, no hook `useRegistrarTransferencia` (e nos demais), as operações são feitas em **loop sequencial** (`for` com `await`): para cada item são feitas 3 chamadas (SELECT + UPDATE + INSERT). Transferir 10 itens = 30 round-trips ao banco. Isso causa timeout/branco enquanto submete.
+Conforme já documentado em memória (`select-component-rendering-fix`), a solução é **guardar o componente Select inteiro pelo isLoading**, não os filhos.
 
-## Problema 2 — App pesado / lento
+## Mudanças
 
-- Múltiplas queries do estoque sem `staleTime`, refetchando a cada foco da janela
-- `useEstoqueItensPorProduto` retorna todos os itens mesmo quando só precisamos contar
-- Loops sequenciais nas mutações (saída, transferência, manutenção, baixa, retorno)
-- `FadeIn` e `Layout` re-renderizando árvores grandes a cada mudança de estado
+### `src/pages/admin/EstoqueEntrada.tsx`
+- No bloco de seleção de produto, mostrar um placeholder/skeleton **fora** do Select enquanto `loadingProdutos === true`. Renderizar o `<Select>` apenas quando os produtos já carregaram.
+- Quando lista vazia, manter um Select desabilitado com texto "Nenhum produto cadastrado", sem children condicionais dentro do SelectContent.
+- Após criar novo produto via `setShowNovoProduto(true) → submit`, garantir que o `produtoId` seja setado com o ID do produto recém-criado **antes** de voltar ao modo Select (assim a próxima renderização do Select já encontra o item na lista). Hoje isso acontece no submit final via `finalProdutoId`, mas se o usuário cancelar/voltar ao Select sem submeter, os children mudam — vamos adotar o padrão de envolver o Select com guarda completa.
 
-## Solução
-
-### 1. Função RPC no banco para movimentações em lote
-Criar funções PostgreSQL `transferir_itens`, `registrar_saida_itens`, `registrar_manutencao_itens`, `registrar_baixa_itens`, `retornar_itens_estoque` que recebem array de IDs e fazem tudo em **uma única transação** (UPDATE em lote + INSERT das movimentações em lote). Isso reduz N×3 chamadas para 1 chamada.
-
-### 2. Refatorar hooks (`src/hooks/useEstoque.ts`)
-- Substituir loops `for await` por chamadas RPC únicas
-- Adicionar `staleTime: 30s` nas queries pesadas (`produtos-resumo`, `estoque-itens-produto`, `salas`, `unidades`)
-- Em `useEstoqueItensPorProduto`, aceitar filtros opcionais (`unidadeId`, `salaId`, `status`) para filtrar no banco em vez do cliente
-
-### 3. Otimizar `EstoqueTransferencia.tsx`
-- Passar filtros direto pra query (`useEstoqueItensPorProduto(produtoId, { status: 'em_uso', unidadeId, salaId })`)
-- Só renderizar a lista de checkboxes quando `modoManual === true`
-- Mostrar contagem (`em_uso` da unidade) via query leve em vez de carregar lista inteira no modo automático
-- Adicionar try/catch com mensagem clara para evitar tela branca
-
-### 4. Aplicar mesmos ganhos nos outros formulários
-`EstoqueSaida.tsx`, `EstoqueManutencao.tsx`, `EstoqueBaixa.tsx` — mesmo padrão (filtros no banco, render condicional da lista).
-
-### 5. Performance global
-- Configurar `QueryClient` com `staleTime: 10_000` e `refetchOnWindowFocus: false` por padrão
-- Memoizar `Layout` e `Sidebar`
-
-## Arquivos
-1. **migration** — criar funções RPC para movimentações em lote
-2. `src/hooks/useEstoque.ts` — usar RPCs, adicionar staleTime, filtros server-side
-3. `src/pages/admin/EstoqueTransferencia.tsx` — render condicional + filtros server-side
-4. `src/pages/admin/EstoqueSaida.tsx` — mesmo
-5. `src/pages/admin/EstoqueManutencao.tsx` — mesmo
-6. `src/pages/admin/EstoqueBaixa.tsx` — mesmo
-7. `src/pages/admin/EstoqueDetalhe.tsx` — mesmo
-8. `src/main.tsx` ou `src/App.tsx` — config global do QueryClient
+### Envolver a rota com ErrorBoundary
+- Em `src/App.tsx`, envolver a rota `/admin/estoque/entrada` com `<ErrorBoundary fallbackMessage="Erro ao carregar entrada de estoque">` (mesmo padrão já usado em `/admin/estoque/saida`). Assim, se algo ainda quebrar, o usuário vê uma mensagem ao invés de tela branca.
 
 ## Resultado esperado
-- Transferência conclui em < 1s mesmo com 50+ itens
-- Sem mais tela em branco
-- Navegação entre páginas mais fluida (cache reaproveitado, sem refetch agressivo)
-
+- Cadastro de novo produto na tela de entrada funciona sem tela branca.
+- Caso outra falha aconteça, o ErrorBoundary mostra mensagem amigável com botão de recarregar.
