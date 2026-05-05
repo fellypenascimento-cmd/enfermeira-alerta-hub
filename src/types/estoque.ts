@@ -23,13 +23,11 @@ export interface SalaWithUnidade extends Sala {
   unidade?: { id: string; nome: string } | null;
 }
 
+// Cada registro = 1 equipamento físico individual
 export interface EstoqueItem {
   id: string;
   produto_id: string;
   numero_patrimonio: string | null;
-  quantidade: number;
-  controle_patrimonial: boolean;
-  quantidade_total: number;
   local_especifico: string | null;
   sala_id: string | null;
   status: EstoqueStatus;
@@ -57,7 +55,6 @@ export interface EstoqueMovimentacao {
   created_at: string;
 }
 
-// Extended types with relations
 export interface EstoqueItemWithRelations extends EstoqueItem {
   produto?: { id: string; nome: string; categoria?: string | null; descricao?: string | null } | null;
   unidade_atual?: { id: string; nome: string } | null;
@@ -74,7 +71,7 @@ export interface EstoqueMovimentacaoWithRelations extends EstoqueMovimentacao {
   responsavel?: { id: string; nome: string; email: string } | null;
 }
 
-// Aggregated product summary for main screen
+// Aggregated product summary for main screen (counts of records)
 export interface ProdutoResumo {
   produto_id: string;
   nome: string;
@@ -86,14 +83,12 @@ export interface ProdutoResumo {
   baixa: number;
 }
 
-// Distribution by unit
 export interface DistribuicaoUnidade {
   unidade_id: string;
   unidade_nome: string;
   quantidade: number;
 }
 
-// Distribution by sala
 export interface DistribuicaoSala {
   sala_id: string;
   sala_nome: string;

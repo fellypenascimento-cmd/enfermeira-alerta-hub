@@ -147,7 +147,6 @@ export type Database = {
       }
       estoque_itens: {
         Row: {
-          controle_patrimonial: boolean
           created_at: string | null
           data_entrada: string
           id: string
@@ -155,8 +154,6 @@ export type Database = {
           numero_patrimonio: string | null
           observacao_entrada: string | null
           produto_id: string
-          quantidade: number | null
-          quantidade_total: number
           responsavel_entrada_id: string
           sala_id: string | null
           status: string | null
@@ -164,7 +161,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          controle_patrimonial?: boolean
           created_at?: string | null
           data_entrada?: string
           id?: string
@@ -172,8 +168,6 @@ export type Database = {
           numero_patrimonio?: string | null
           observacao_entrada?: string | null
           produto_id: string
-          quantidade?: number | null
-          quantidade_total?: number
           responsavel_entrada_id: string
           sala_id?: string | null
           status?: string | null
@@ -181,7 +175,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          controle_patrimonial?: boolean
           created_at?: string | null
           data_entrada?: string
           id?: string
@@ -189,8 +182,6 @@ export type Database = {
           numero_patrimonio?: string | null
           observacao_entrada?: string | null
           produto_id?: string
-          quantidade?: number | null
-          quantidade_total?: number
           responsavel_entrada_id?: string
           sala_id?: string | null
           status?: string | null
@@ -590,12 +581,48 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _estoque_status_destino: {
+        Args: { p_unidade_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      registrar_baixa_itens: {
+        Args: { p_data: string; p_item_ids: string[]; p_motivo: string }
+        Returns: number
+      }
+      registrar_manutencao_itens: {
+        Args: { p_data: string; p_item_ids: string[]; p_observacao: string }
+        Returns: number
+      }
+      registrar_saida_itens: {
+        Args: {
+          p_data: string
+          p_item_ids: string[]
+          p_observacao: string
+          p_sala_destino: string
+          p_unidade_destino: string
+        }
+        Returns: number
+      }
+      retornar_itens_estoque: {
+        Args: { p_data: string; p_item_ids: string[]; p_observacao: string }
+        Returns: number
+      }
+      transferir_itens: {
+        Args: {
+          p_data: string
+          p_item_ids: string[]
+          p_observacao: string
+          p_sala_destino: string
+          p_unidade_destino: string
+        }
+        Returns: number
       }
     }
     Enums: {
