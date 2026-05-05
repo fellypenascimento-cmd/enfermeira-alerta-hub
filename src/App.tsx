@@ -107,7 +107,7 @@ function AppRoutes() {
       <Route path="/admin/unidades" element={<ProtectedRoute adminOnly><Unidades /></ProtectedRoute>} />
       <Route path="/admin/problemas" element={<ProtectedRoute adminOnly><Problemas /></ProtectedRoute>} />
       <Route path="/admin/estoque" element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
-      <Route path="/admin/estoque/entrada" element={<ProtectedRoute adminOnly><EstoqueEntrada /></ProtectedRoute>} />
+      <Route path="/admin/estoque/entrada" element={<ProtectedRoute adminOnly><ErrorBoundary fallbackMessage="Erro ao carregar entrada de estoque"><EstoqueEntrada /></ErrorBoundary></ProtectedRoute>} />
       <Route path="/admin/estoque/saida" element={<ProtectedRoute adminOnly><ErrorBoundary fallbackMessage="Erro ao carregar página de saída"><EstoqueSaida /></ErrorBoundary></ProtectedRoute>} />
       <Route path="/admin/estoque/baixa" element={<ProtectedRoute adminOnly><EstoqueBaixa /></ProtectedRoute>} />
       <Route path="/admin/estoque/relatorios" element={<ProtectedRoute adminOnly><EstoqueRelatorios /></ProtectedRoute>} />

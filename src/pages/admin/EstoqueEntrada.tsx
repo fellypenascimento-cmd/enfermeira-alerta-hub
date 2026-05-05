@@ -184,22 +184,27 @@ export default function EstoqueEntrada() {
                   <Label>Produto *</Label>
                   {!showNovoProduto ? (
                     <div className="flex gap-2">
-                      <Select value={produtoId} onValueChange={setProdutoId}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione um produto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {loadingProdutos ? (
-                            <div className="p-2 text-center text-muted-foreground">Carregando...</div>
-                          ) : produtos && produtos.length > 0 ? (
-                            produtos.map((produto) => (
+                      {loadingProdutos ? (
+                        <div className="flex-1 h-10 rounded-md border bg-muted/40 flex items-center px-3 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Carregando produtos...
+                        </div>
+                      ) : !produtos || produtos.length === 0 ? (
+                        <div className="flex-1 h-10 rounded-md border bg-muted/40 flex items-center px-3 text-sm text-muted-foreground">
+                          Nenhum produto cadastrado
+                        </div>
+                      ) : (
+                        <Select value={produtoId} onValueChange={setProdutoId}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecione um produto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {produtos.map((produto) => (
                               <SelectItem key={produto.id} value={produto.id}>{produto.nome}</SelectItem>
-                            ))
-                          ) : (
-                            <div className="p-2 text-center text-muted-foreground">Nenhum produto cadastrado</div>
-                          )}
-                        </SelectContent>
-                      </Select>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Button type="button" variant="outline" onClick={() => setShowNovoProduto(true)}>
                         <Plus className="w-4 h-4 mr-1" />Novo
                       </Button>
