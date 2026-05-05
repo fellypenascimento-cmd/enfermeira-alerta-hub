@@ -51,6 +51,7 @@ export default function EstoqueEntrada() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showNovoProduto, setShowNovoProduto] = React.useState(false);
 
+  // Atualiza campos de patrimônio quando quantidade ou switch muda
   React.useEffect(() => {
     const qtd = parseInt(quantidade) || 0;
     if (possuiPatrimonio && qtd > 0) {
@@ -63,7 +64,6 @@ export default function EstoqueEntrada() {
     } else {
       setPatrimonios([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quantidade, possuiPatrimonio]);
 
   const handlePatrimonioChange = async (index: number, value: string) => {
@@ -72,17 +72,25 @@ export default function EstoqueEntrada() {
     setPatrimonios(newPatrimonios);
 
     if (value.trim()) {
+      // Verificar duplicata local
       const duplicataLocal = patrimonios.some(
         (p, i) => i !== index && p.value.trim() === value.trim()
       );
+
       if (duplicataLocal) {
         newPatrimonios[index] = { value, isValid: false, isChecking: false };
         setPatrimonios([...newPatrimonios]);
         return;
       }
+
+      // Verificar no banco
       try {
         const existing = await verificarPatrimonio.mutateAsync(value.trim());
-        newPatrimonios[index] = { value, isValid: !existing, isChecking: false };
+        newPatrimonios[index] = { 
+          value, 
+          isValid: !existing, 
+          isChecking: false 
+        };
         setPatrimonios([...newPatrimonios]);
       } catch {
         newPatrimonios[index] = { value, isValid: null, isChecking: false };
@@ -103,12 +111,15 @@ export default function EstoqueEntrada() {
       return;
     }
 
+    // Validações
     let finalProdutoId = produtoId;
+
     if (showNovoProduto) {
       if (!novoProdutoNome.trim()) {
         toast.error('Informe o nome do produto');
         return;
       }
+      // Criar novo produto
       try {
         const novoProduto = await createProduto.mutateAsync({ nome: novoProdutoNome.trim() });
         finalProdutoId = novoProduto.id;
@@ -121,12 +132,14 @@ export default function EstoqueEntrada() {
     }
 
     if (possuiPatrimonio) {
+      const invalidos = patrimonios.filter((p) => !p.isValid);
       const vazios = patrimonios.filter((p) => !p.value.trim());
-      const invalidos = patrimonios.filter((p) => p.value.trim() && p.isValid === false);
+      
       if (vazios.length > 0) {
         toast.error('Preencha todos os números de patrimônio');
         return;
       }
+      
       if (invalidos.length > 0) {
         toast.error('Existem patrimônios duplicados ou inválidos');
         return;
@@ -134,18 +147,39 @@ export default function EstoqueEntrada() {
     }
 
     setIsSubmitting(true);
+
     try {
-      await createEstoqueItem.mutateAsync({
-        produto_id: finalProdutoId,
-        quantidade: qtdNum,
-        patrimonios: possuiPatrimonio ? patrimonios.map(p => p.value.trim()) : undefined,
-        data_entrada: dataEntrada.toISOString(),
-        observacao_entrada: observacao || null,
-      });
-      toast.success(`${qtdNum} item(ns) registrado(s) individualmente!`);
+      if (possuiPatrimonio) {
+        // Criar um item para cada patrimônio
+        for (const patrimonio of patrimonios) {
+          await createEstoqueItem.mutateAsync({
+            produto_id: finalProdutoId,
+            numero_patrimonio: patrimonio.value.trim(),
+            quantidade: 1,
+            controle_patrimonial: true,
+            quantidade_total: 1,
+            data_entrada: dataEntrada.toISOString(),
+            observacao_entrada: observacao || null,
+          });
+        }
+        toast.success(`${patrimonios.length} itens registrados com sucesso!`);
+      } else {
+        // Criar item único com quantidade (sem patrimônio)
+        await createEstoqueItem.mutateAsync({
+          produto_id: finalProdutoId,
+          numero_patrimonio: null,
+          quantidade: qtdNum,
+          controle_patrimonial: false,
+          quantidade_total: qtdNum,
+          data_entrada: dataEntrada.toISOString(),
+          observacao_entrada: observacao || null,
+        });
+        toast.success('Entrada registrada com sucesso!');
+      }
+
       navigate('/admin/estoque');
-    } catch {
-      // erro já tratado
+    } catch (error) {
+      // Erro já tratado no hook
     } finally {
       setIsSubmitting(false);
     }
@@ -165,8 +199,8 @@ export default function EstoqueEntrada() {
               <ArrowDownToLine className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Entrada de Equipamentos</h1>
-              <p className="text-muted-foreground">Cada equipamento será registrado individualmente</p>
+              <h1 className="text-2xl font-bold text-foreground">Entrada de Produtos</h1>
+              <p className="text-muted-foreground">Registre novos itens no estoque</p>
             </div>
           </div>
         </FadeIn>
@@ -175,8 +209,8 @@ export default function EstoqueEntrada() {
           <form onSubmit={handleSubmit}>
             <Card>
               <CardHeader>
-                <CardTitle>Dados do Equipamento</CardTitle>
-                <CardDescription>Informe a quantidade — serão criados N itens individuais</CardDescription>
+                <CardTitle>Dados do Produto</CardTitle>
+                <CardDescription>Preencha as informações da entrada</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Produto */}
@@ -184,29 +218,35 @@ export default function EstoqueEntrada() {
                   <Label>Produto *</Label>
                   {!showNovoProduto ? (
                     <div className="flex gap-2">
-                      {loadingProdutos ? (
-                        <div className="flex-1 h-10 rounded-md border bg-muted/40 flex items-center px-3 text-sm text-muted-foreground">
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Carregando produtos...
-                        </div>
-                      ) : !produtos || produtos.length === 0 ? (
-                        <div className="flex-1 h-10 rounded-md border bg-muted/40 flex items-center px-3 text-sm text-muted-foreground">
-                          Nenhum produto cadastrado
-                        </div>
-                      ) : (
-                        <Select value={produtoId} onValueChange={setProdutoId}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Selecione um produto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {produtos.map((produto) => (
-                              <SelectItem key={produto.id} value={produto.id}>{produto.nome}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                      <Button type="button" variant="outline" onClick={() => setShowNovoProduto(true)}>
-                        <Plus className="w-4 h-4 mr-1" />Novo
+                      <Select value={produtoId} onValueChange={setProdutoId}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione um produto" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {loadingProdutos ? (
+                            <div className="p-2 text-center text-muted-foreground">
+                              Carregando...
+                            </div>
+                          ) : produtos && produtos.length > 0 ? (
+                            produtos.map((produto) => (
+                              <SelectItem key={produto.id} value={produto.id}>
+                                {produto.nome}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-center text-muted-foreground">
+                              Nenhum produto cadastrado
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowNovoProduto(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Novo
                       </Button>
                     </div>
                   ) : (
@@ -217,7 +257,15 @@ export default function EstoqueEntrada() {
                         placeholder="Nome do novo produto"
                         className="flex-1"
                       />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => { setShowNovoProduto(false); setNovoProdutoNome(''); }}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setShowNovoProduto(false);
+                          setNovoProdutoNome('');
+                        }}
+                      >
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
@@ -233,84 +281,143 @@ export default function EstoqueEntrada() {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     value={quantidade}
-                    onChange={(e) => setQuantidade(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setQuantidade(val);
+                    }}
                     placeholder="Digite a quantidade"
+                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Cada unidade vira um item individual rastreável
+                    Digite o número de itens a registrar
                   </p>
                 </div>
 
-                {/* Possui patrimônio? */}
+                {/* Possui Patrimônio? */}
                 {parseInt(quantidade) > 0 && (
                   <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
                     <div>
-                      <Label htmlFor="patrimonio-switch">Informar números de patrimônio?</Label>
+                      <Label htmlFor="patrimonio-switch">Este produto possui número de patrimônio?</Label>
                       <p className="text-sm text-muted-foreground">
                         {possuiPatrimonio
-                          ? `Informe ${parseInt(quantidade) || 0} patrimônio(s) único(s)`
-                          : 'Opcional — pode ser cadastrado depois individualmente'}
+                          ? `Informe ${parseInt(quantidade) || 0} número(s) de patrimônio único(s)`
+                          : 'Marque se cada item possui identificação patrimonial'}
                       </p>
                     </div>
-                    <Switch id="patrimonio-switch" checked={possuiPatrimonio} onCheckedChange={setPossuiPatrimonio} />
+                    <Switch
+                      id="patrimonio-switch"
+                      checked={possuiPatrimonio}
+                      onCheckedChange={setPossuiPatrimonio}
+                    />
                   </div>
                 )}
 
+                {/* Campos de Patrimônio */}
                 {possuiPatrimonio && patrimonios.length > 0 && (
                   <div className="space-y-3">
                     <Label>Números de Patrimônio *</Label>
                     {patrimonios.map((patrimonio, index) => (
                       <div key={index} className="flex items-center gap-2">
-                        <Hash className="w-4 h-4 text-muted-foreground" />
-                        <Input
-                          value={patrimonio.value}
-                          onChange={(e) => handlePatrimonioChange(index, e.target.value)}
-                          placeholder={`Patrimônio ${index + 1}`}
-                          className={cn(
-                            patrimonio.isValid === false && 'border-destructive',
-                            patrimonio.isValid === true && 'border-green-500'
-                          )}
-                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          <Hash className="w-4 h-4 text-muted-foreground" />
+                          <Input
+                            value={patrimonio.value}
+                            onChange={(e) => handlePatrimonioChange(index, e.target.value)}
+                            placeholder={`Patrimônio ${index + 1}`}
+                            className={cn(
+                              patrimonio.isValid === false && 'border-destructive',
+                              patrimonio.isValid === true && 'border-green-500'
+                            )}
+                          />
+                        </div>
                         <div className="w-6">
-                          {patrimonio.isChecking && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                          {patrimonio.isValid === true && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                          {patrimonio.isValid === false && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                          {patrimonio.isChecking && (
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          )}
+                          {patrimonio.isValid === true && (
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          )}
+                          {patrimonio.isValid === false && (
+                            <AlertTriangle className="w-4 h-4 text-destructive" />
+                          )}
                         </div>
                       </div>
                     ))}
+                    {patrimonios.some((p) => p.isValid === false) && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertTriangle className="w-4 h-4" />
+                        Patrimônio já cadastrado ou duplicado
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {/* Data */}
+                {/* Data de Entrada */}
                 <div className="space-y-2">
                   <Label>Data de Entrada *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !dataEntrada && 'text-muted-foreground')}>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full justify-start text-left font-normal',
+                          !dataEntrada && 'text-muted-foreground'
+                        )}
+                      >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dataEntrada ? format(dataEntrada, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : <span>Selecione a data</span>}
+                        {dataEntrada ? (
+                          format(dataEntrada, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                        ) : (
+                          <span>Selecione a data</span>
+                        )}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={dataEntrada} onSelect={(date) => date && setDataEntrada(date)} locale={ptBR} initialFocus />
+                      <Calendar
+                        mode="single"
+                        selected={dataEntrada}
+                        onSelect={(date) => date && setDataEntrada(date)}
+                        locale={ptBR}
+                        initialFocus
+                      />
                     </PopoverContent>
                   </Popover>
                 </div>
 
+                {/* Observação */}
                 <div className="space-y-2">
                   <Label htmlFor="observacao">Observação</Label>
-                  <Textarea id="observacao" value={observacao} onChange={(e) => setObservacao(e.target.value)} placeholder="Informações adicionais..." rows={3} />
+                  <Textarea
+                    id="observacao"
+                    value={observacao}
+                    onChange={(e) => setObservacao(e.target.value)}
+                    placeholder="Informações adicionais sobre esta entrada..."
+                    rows={3}
+                  />
                 </div>
 
+                {/* Botões */}
                 <div className="flex gap-3 pt-4">
-                  <Button type="button" variant="outline" onClick={() => navigate('/admin/estoque')} disabled={isSubmitting} className="flex-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate('/admin/estoque')}
+                    disabled={isSubmitting}
+                    className="flex-1"
+                  >
                     Cancelar
                   </Button>
                   <Button type="submit" disabled={isSubmitting} className="flex-1">
                     {isSubmitting ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Registrando...</>
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Registrando...
+                      </>
                     ) : (
-                      <><ArrowDownToLine className="w-4 h-4 mr-2" />Registrar Entrada</>
+                      <>
+                        <ArrowDownToLine className="w-4 h-4 mr-2" />
+                        Registrar Entrada
+                      </>
                     )}
                   </Button>
                 </div>

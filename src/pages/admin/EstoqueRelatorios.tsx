@@ -132,7 +132,7 @@ export default function EstoqueRelatorios() {
         
         doc.text((item.produto?.nome || 'N/A').substring(0, 22), 12, y);
         doc.text(item.numero_patrimonio || '-', 55, y);
-        doc.text('1', 88, y);
+        doc.text(String(item.controle_patrimonial ? 1 : (item.quantidade_total || 1)), 88, y);
         doc.text(statusConfig[item.status as keyof typeof statusConfig]?.label || item.status || '-', 100, y);
         doc.text((item.unidade_atual?.nome || '-').substring(0, 15), 125, y);
         doc.text((item.local_especifico || '-').substring(0, 12), 155, y);
@@ -159,12 +159,12 @@ export default function EstoqueRelatorios() {
       const data = filteredItens.map((item) => ({
         'Produto': item.produto?.nome || 'N/A',
         'Patrimônio': item.numero_patrimonio || '-',
-        'Qtd Total': 1,
+        'Qtd Total': item.controle_patrimonial ? 1 : (item.quantidade_total || 1),
         'Status': statusConfig[item.status as keyof typeof statusConfig]?.label || item.status || '-',
         'Unidade Atual': item.unidade_atual?.nome || '-',
         'Local Específico': item.local_especifico || '-',
         'Data Entrada': format(new Date(item.data_entrada), 'dd/MM/yyyy'),
-        'Quantidade': 1,
+        'Quantidade': item.quantidade || 1,
         'Observação': item.observacao_entrada || '-',
       }));
 
@@ -382,7 +382,7 @@ export default function EstoqueRelatorios() {
                               )}
                             </td>
                             <td className="p-3">
-                              1
+                              {item.controle_patrimonial ? 1 : (item.quantidade_total || 1)}
                             </td>
                             <td className="p-3">
                               <Badge className={config?.color}>{config?.label}</Badge>

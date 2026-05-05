@@ -27,16 +27,7 @@ import EstoqueManutencao from "./pages/admin/EstoqueManutencao";
 import NotFound from "./pages/NotFound";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 function ProtectedRoute({ children, adminOnly = false, userOnly = false }: { children: React.ReactNode; adminOnly?: boolean; userOnly?: boolean }) {
   const { user, isAdmin, loading } = useAuth();
@@ -107,7 +98,7 @@ function AppRoutes() {
       <Route path="/admin/unidades" element={<ProtectedRoute adminOnly><Unidades /></ProtectedRoute>} />
       <Route path="/admin/problemas" element={<ProtectedRoute adminOnly><Problemas /></ProtectedRoute>} />
       <Route path="/admin/estoque" element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
-      <Route path="/admin/estoque/entrada" element={<ProtectedRoute adminOnly><ErrorBoundary fallbackMessage="Erro ao carregar entrada de estoque"><EstoqueEntrada /></ErrorBoundary></ProtectedRoute>} />
+      <Route path="/admin/estoque/entrada" element={<ProtectedRoute adminOnly><EstoqueEntrada /></ProtectedRoute>} />
       <Route path="/admin/estoque/saida" element={<ProtectedRoute adminOnly><ErrorBoundary fallbackMessage="Erro ao carregar página de saída"><EstoqueSaida /></ErrorBoundary></ProtectedRoute>} />
       <Route path="/admin/estoque/baixa" element={<ProtectedRoute adminOnly><EstoqueBaixa /></ProtectedRoute>} />
       <Route path="/admin/estoque/relatorios" element={<ProtectedRoute adminOnly><EstoqueRelatorios /></ProtectedRoute>} />
